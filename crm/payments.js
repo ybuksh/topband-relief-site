@@ -104,13 +104,26 @@ module.exports = function payments(ctx) {
         const inst = L.plan_amount && Number(L.plan_amount) < bal ? Number(L.plan_amount) : null;
         const opts = amt => `${STRIPE_KEY ? `<form method="post" action="/pay/${L.pay_token}/stripe"><input type="hidden" name="amount" value="${amt}"><button style="width:100%;font-size:1.1rem;padding:14px">Pay ${gbp(amt)} by card</button></form>` : ""}
           ${GC_TOKEN ? `<form method="post" action="/pay/${L.pay_token}/gocardless"><input type="hidden" name="amount" value="${amt}"><button class="btn ghost" style="width:100%;font-size:1.1rem;padding:14px">Pay ${gbp(amt)} from your bank app</button></form>` : ""}`;
-        res.send(shell(`Pay invoice ${L.invoice_no}`, `${req.query.cancel ? `<div class="panel"><p>Your payment wasn't completed. You can try again below or call us.</p></div>` : ""}${req.query.done ? `<div class="panel" style="border-color:var(--good)"><p><b>Thank you.</b> We'll confirm once your payment has come through.</p></div>` : ""}
+        res.send(shell(`Pay invoice ${L.invoice_no}`, `${req.query.plan ? `<div class="panel" style="border-color:var(--good)"><p><b>Thank you, your plan is set up.</b> You can make your first payment below. We'll remind you before each one.</p></div>` : ""}${req.query.cancel ? `<div class="panel"><p>Your payment wasn't completed. You can try again below or call us.</p></div>` : ""}${req.query.done ? `<div class="panel" style="border-color:var(--good)"><p><b>Thank you.</b> We'll confirm once your payment has come through.</p></div>` : ""}
           <div class="panel"><dl><dt>Invoice</dt><dd>${esc(L.invoice_no)}</dd><dt>For</dt><dd>${esc(L.title || "")} ${esc(L.last_name)}</dd><dt>Amount due</dt><dd><b>${gbp(bal)}</b></dd><dt>Due by</dt><dd>${fmtDate(iso(L.invoice_due))}</dd></dl></div>
           ${STRIPE_KEY || GC_TOKEN ? `<div class="panel" style="display:grid;gap:10px"><h2>Pay online</h2>${inst ? `<p>Your payment plan instalment:</p>${opts(inst)}<p class="muted">Or pay the full balance:</p>` : ""}${opts(bal)}<small class="muted">Secure payment pages run by ${[STRIPE_KEY && "Stripe", GC_TOKEN && "GoCardless"].filter(Boolean).join(" and ")}. We never see your card or bank login details.</small></div>` : ""}
+          ${!L.plan_amount && bal > 60 ? `<form class="panel" method="post" action="/pay/${L.pay_token}/plan" style="display:grid;gap:10px"><h2>Spread the cost</h2><p>Choose a monthly plan. There's no interest and no extra charge.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">${[3, 6, 10].map(n => `<button class="btn ghost" name="months" value="${n}" style="flex:1 1 140px">${n} months<br><b>${gbp(Math.ceil(bal / n))}</b> a month</button>`).join("")}</div>
+            <small class="muted">We'll confirm the plan with you and send a reminder before each payment.</small></form>` : ""}
           <div class="panel"><h2>Other ways to pay</h2><ul>
           ${F.account_no ? `<li>Bank transfer to ${esc(F.account_name || F.company_name)}, sort code ${esc(F.sort_code)}, account ${esc(F.account_no)}, reference <b>${esc(L.invoice_no)}</b></li>` : ""}
           <li>Cheque payable to ${esc(F.company_name || BRAND)}${F.address ? `, posted to ${esc(F.address)}` : ""}, with ${esc(L.invoice_no)} on the back</li>
           <li>Card over the phone: call ${esc(F.phone || PHONE)}</li></ul></div>`));
+      });
+      app.post("/pay/:token/plan", async (req, res) => {
+        const L = await byToken(req.params.token); if (!L) return res.redirect("/pay/" + req.params.token);
+        const months = [3, 6, 10].includes(Number(req.body.months)) ? Number(req.body.months) : 3, bal = await balance(L);
+        if (bal <= 0 || L.plan_amount) return res.redirect("/pay/" + L.pay_token);
+        const amt = Math.ceil(bal / months);
+        await pool.query("UPDATE leads SET plan_amount=$2, stage=CASE WHEN stage IN ('invoiced','fee_review') THEN 'payment_plan' ELSE stage END, next_action=$3, next_action_date=current_date, updated_at=now() WHERE id=$1",
+          [L.id, amt, `Client chose a ${months}-month plan online (${gbp(amt)} a month): confirm it with them`]);
+        await log(L.id, "fee", `Client chose a ${months}-month payment plan online: ${gbp(amt)} a month`);
+        res.redirect("/pay/" + L.pay_token + "?plan=1");
       });
       app.post("/pay/:token/stripe", async (req, res) => {
         const L = await byToken(req.params.token); if (!L || !STRIPE_KEY) return res.redirect("/pay/" + req.params.token);

@@ -128,7 +128,8 @@ const LABELS = {
   pension: { less: "Less than full", full: "Full", none: "Not receiving yet", unsure: "Not sure" },
   marital: { married: "Married or civil partnership", widowed: "Widowed", divorced: "Divorced or dissolved", single: "Single" },
   credit: { yes: "Yes", no: "No", unsure: "Not sure" },
-  ft: { no: "Never full time 1978–2010", some: "Full time in some years", unsure: "Not sure" }
+  ft: { no: "Never full time while children were young", some: "Full time in some years", throughout: "Says full time throughout", unsure: "Not sure" },
+  sp_band: { u100: "Under £100 a week", "100": "£100 to £150 a week", "150": "£150 to £200 a week", "200": "Over £200 a week", unsure: "Not sure" }
 };
 
 /* ---------- helpers ---------- */
@@ -365,6 +366,30 @@ async function initDb() {
     ALTER TABLE activity ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS invoice_no TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS attorney TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS partial BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS partial_token TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS answers JSONB;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS detail_token TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS details_done_at TIMESTAMPTZ;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS helper_name TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS helper_relation TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS helper_ok BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS helper_phone TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS helper_email TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS contact_name TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS death_date TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS mobile TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS sp_band TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS ft_from INT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS years_at_address TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS partner_dob DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS call_attempts INT NOT NULL DEFAULT 0;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_call_at TIMESTAMPTZ;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS book_token TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS booked_at TIMESTAMPTZ;
+    CREATE UNIQUE INDEX IF NOT EXISTS leads_partial_token_idx ON leads(partial_token) WHERE partial_token IS NOT NULL;
+    CREATE TABLE IF NOT EXISTS funnel_events (id BIGSERIAL PRIMARY KEY, at TIMESTAMPTZ NOT NULL DEFAULT now(), sid TEXT NOT NULL, step TEXT NOT NULL, utm TEXT);
+    CREATE INDEX IF NOT EXISTS funnel_events_at_idx ON funnel_events(at);
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS sanctions TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS edd_approved_by TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS cf411_checked_by TEXT;
@@ -385,6 +410,7 @@ async function initDb() {
   `);
 }
 const log = (id, kind, text) => pool.query("INSERT INTO activity(lead_id,kind,text) VALUES($1,$2,$3)", [id, kind, text]);
+const getLeadRow = async id => (await pool.query("SELECT * FROM leads WHERE id=$1", [id])).rows[0];
 
 /* ---------- email (optional, via Resend) ---------- */
 async function sendEmail(to, subject, text) {
@@ -464,6 +490,12 @@ function flags(r) {
   if (r.email_bad) f.push(`<span class="pill bad">Email bouncing</span>`);
   if (r.phone_bad) f.push(`<span class="pill bad">Phone not working</span>`);
   if (r.paper_requested) f.push(`<span class="pill">Wants paper</span>`);
+  if (r.partial) f.push(`<span class="pill bad">Unfinished check</span>`);
+  if (r.details_done_at) f.push(`<span class="pill good">Details online</span>`);
+  if (r.for_whom === "help") f.push(`<span class="pill">Helper: ${esc(r.helper_relation || "yes")}</span>`);
+  if (r.for_whom === "died") f.push(`<span class="pill">Estate</span>`);
+  if (r.booked_at && new Date(r.booked_at) > new Date()) f.push(`<span class="pill good">Call booked</span>`);
+  if (r.call_attempts && ["new", "contacted"].includes(r.stage)) f.push(`<span class="pill">${r.call_attempts} call${r.call_attempts > 1 ? "s" : ""} tried</span>`);
   if (r.owner) f.push(`<span class="pill">${esc(r.owner)}</span>`);
   if (r.attorney) f.push(`<span class="pill bad">Attorney: hold</span>`);
   if (r.sanctions === "possible" || r.sanctions === "confirmed") f.push(`<span class="pill bad">Sanctions check</span>`);
@@ -513,43 +545,142 @@ app.use("/api", (req, res, next) => {
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+const SITE_URL = (process.env.SITE_URL || SITE_ORIGINS[0] || "https://topband-relief-test.onrender.com").replace(/\/$/, "");
+const tok = () => crypto.randomBytes(24).toString("base64url");
+const ipOfReq = req => (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+function rateOk(req, max = 30) { const ip = ipOfReq(req), now = Date.now(), list = (hits.get(ip) || []).filter(t => now - t < 3600e3); if (list.length >= max) return false; list.push(now); hits.set(ip, list); return true; }
+/* answers from the website check, mapped onto the case record */
+function mapAnswers(b) {
+  const forWhom = clip(b.for, 10) || "me";
+  const helped = forWhom !== "me";
+  const ftMode = clip(b.ft, 12);
+  const f = {
+    cb: clip(b.cb, 20), care: clip(b.care, 10), for_whom: forWhom, pension: clip(b.pension, 10),
+    born: parseInt(b.born, 10) || null, marital: clip(b.status, 12), credit: clip(b.credit, 10),
+    title: clip(b.ti, 10), first_name: clip(b.fn, 80) || (forWhom === "me" ? clip(b.efn, 80) : ""), last_name: clip(b.ln, 80), maiden_name: clip(b.mn, 80),
+    best_time: clip(b.bt, 60), consent: b.ok === true || b.ok === "true",
+    ni_number: normNi(b.ni) || null, kid1: parseInt(b.kid1, 10) || null, kid2: parseInt(b.kid2, 10) || null,
+    ft: ftMode || null, ft_years: ftMode === "some" && Array.isArray(b.fty) ? parseYears(b.fty.join(",")).join(",") : null,
+    ft_from: parseInt(b.ftFrom, 10) || null, sp_band: clip(b.spb, 10) || null, sp_start_year: parseInt(b.spy, 10) || null,
+    helper_name: helped ? [clip(b.hfn || b.efn, 60), clip(b.hln, 60)].filter(Boolean).join(" ") || null : null,
+    helper_relation: helped ? clip(b.rel, 60) || null : null, helper_ok: b.hok === true,
+    death_date: forWhom === "died" ? clip(b.dd, 40) || null : null, upliftOnly: !!b.upliftOnly
+  };
+  /* who we phone and text: the claimant if they gave a number, otherwise the helper */
+  const claimantPhone = forWhom === "help" ? clip(b.cph, 30) : "";
+  const helperPhone = clip(b.ph || b.eph, 30);
+  f.phone = forWhom === "me" ? clip(b.ph || b.eph, 30) : (claimantPhone || helperPhone);
+  f.mobile = clip(b.mob, 30) || null;
+  f.email = clip(b.em, 160);
+  f.helper_phone = helped ? helperPhone || null : null;
+  f.helper_email = helped ? f.email || null : null;
+  f.contact_name = helped && !claimantPhone ? clip(b.hfn || b.efn, 60) || null : null;
+  return f;
+}
+const leadCols = ["cb", "care", "for_whom", "pension", "born", "marital", "credit", "title", "first_name", "last_name", "maiden_name", "email", "phone", "mobile", "best_time", "ni_number", "kid1", "kid2", "ft", "ft_years", "ft_from", "sp_band", "sp_start_year", "helper_name", "helper_relation", "helper_ok", "helper_phone", "helper_email", "death_date", "contact_name"];
+
+/* step 1: name and phone early, so an unfinished check can be picked up */
+app.post("/api/partial", async (req, res) => {
+  try {
+    if (!rateOk(req)) return res.status(429).json({ ok: false });
+    const b = req.body || {}, A = b.answers || {};
+    if (b.website) return res.json({ ok: true });
+    if (b.token) return res.json({ ok: false });
+    const name = clip(A.efn, 80), phone = clip(A.eph, 30);
+    if (!name || !phone || !(A.ok === true)) return res.status(400).json({ ok: false, error: "Name, phone and consent needed" });
+    const t = tok(), f = mapAnswers(A);
+    const r = await pool.query(`INSERT INTO leads(source,partial,partial_token,answers,first_name,phone,for_whom,cb,care,consent,consent_text,next_action,next_action_date,ip,user_agent,referrer,utm,helper_name,contact_name,last_name)
+      VALUES('website',true,$1,$2,$3,$4,$5,$6,$7,true,$8,'Unfinished check: we text a reminder; call if they don''t finish',$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
+      [t, JSON.stringify(A), name, phone, f.for_whom, f.cb, f.care, "I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.", nextWorkingDay(today()), ipOfReq(req) || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null, f.for_whom === "me" ? null : name, f.for_whom === "me" ? null : name, f.for_whom === "me" ? "" : "(person they're helping)"]);
+    await log(r.rows[0].id, "created", `Check started on the website by ${name}${f.for_whom !== "me" ? " (for someone else)" : ""}; not finished yet`);
+    res.json({ ok: true, token: t });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
+});
+app.post("/api/partial/:token", async (req, res) => {
+  const A = (req.body || {}).answers; if (!A || typeof A !== "object" || !/^[A-Za-z0-9_-]{20,60}$/.test(req.params.token)) return res.json({ ok: false });
+  await pool.query("UPDATE leads SET answers=$2, updated_at=now() WHERE partial_token=$1 AND partial", [req.params.token, JSON.stringify(A).slice(0, 20000)]);
+  res.json({ ok: true });
+});
+app.get("/api/partial/:token", async (req, res) => {
+  if (!/^[A-Za-z0-9_-]{20,60}$/.test(req.params.token)) return res.json({ ok: false });
+  const L = (await pool.query("SELECT id, answers, partial FROM leads WHERE partial_token=$1", [req.params.token])).rows[0];
+  if (!L || !L.partial) return res.json({ ok: false });
+  await log(L.id, "status", "Came back to finish their check");
+  const A = L.answers || {}; delete A.ni;
+  res.json({ ok: true, answers: A });
+});
+/* which step people reach, to see where they give up */
+app.post("/api/events", express.text({ type: "*/*", limit: "2kb" }), async (req, res) => {
+  try {
+    const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+    const sid = clip(b.sid, 40), step = clip(b.step, 40);
+    if (sid && step && rateOk(req, 300)) await pool.query("INSERT INTO funnel_events(sid,step,utm) VALUES($1,$2,$3)", [sid, step, clip(b.utm, 200) || null]);
+  } catch { }
+  res.sendStatus(204);
+});
+
 app.post("/api/leads", async (req, res) => {
   try {
-    const ip = (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
-    const now = Date.now(), list = (hits.get(ip) || []).filter(t => now - t < 3600e3);
-    if (list.length >= 10) return res.status(429).json({ ok: false, error: "Too many submissions. Please call us instead." });
-    list.push(now); hits.set(ip, list);
+    if (!rateOk(req, 10)) return res.status(429).json({ ok: false, error: "Too many submissions. Please call us instead." });
     const b = req.body || {};
     if (b.website) return res.json({ ok: true }); // honeypot
-    const f = {
-      cb: clip(b.cb, 20), care: clip(b.care, 10), for_whom: clip(b.for, 10), pension: clip(b.pension, 10),
-      born: parseInt(b.born, 10) || null, marital: clip(b.status, 12), credit: clip(b.credit, 10),
-      title: clip(b.ti, 10), first_name: clip(b.fn, 80), last_name: clip(b.ln, 80), maiden_name: clip(b.mn, 80),
-      email: clip(b.em, 160), phone: clip(b.ph, 30), best_time: clip(b.bt, 60), consent: b.ok === true || b.ok === "true",
-      consent_text: clip(b.consent_text, 400), source: clip(b.source || "website", 60),
-      ni_number: normNi(b.ni) || null, kid1: parseInt(b.kid1, 10) || null, kid2: parseInt(b.kid2, 10) || null,
-      ft: clip(b.ft, 10) || null, ft_years: b.ft === "some" && Array.isArray(b.fty) ? parseYears(b.fty.join(",")).join(",") : null
-    };
-    if (!f.first_name || !f.last_name || (!f.email && !f.phone) || !f.consent)
-      return res.status(400).json({ ok: false, error: "Please fill in your name, a phone number or email, and tick the consent box." });
+    const f = mapAnswers(b);
+    f.consent_text = clip(b.consent_text, 400); f.source = clip(b.source || "website", 60);
+    if (!f.first_name || !f.last_name || !f.phone || !f.consent)
+      return res.status(400).json({ ok: false, error: "Please fill in the name, a phone number, and tick the consent box." });
     const due = nextWorkingDay(today());
-    const r = await pool.query(`INSERT INTO leads(source,cb,care,for_whom,pension,born,marital,credit,title,first_name,last_name,maiden_name,email,phone,best_time,consent,consent_text,next_action,next_action_date,ni_number,kid1,kid2,ft,ft_years)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING id`,
-      [f.source, f.cb, f.care, f.for_whom, f.pension, f.born, f.marital, f.credit, f.title, f.first_name, f.last_name, f.maiden_name, f.email, f.phone, f.best_time, f.consent, f.consent_text, "Call the client (" + (f.best_time || "any time") + ")", due, f.ni_number, f.kid1, f.kid2, f.ft, f.ft_years]);
-    const id = r.rows[0].id;
-    await log(id, "created", "Enquiry received from " + f.source + (f.consent ? ", consent to contact given" : ""));
-    if (f.cb === "partner") await log(id, "check", "Child Benefit was paid to the partner: HRP went to the partner, so the partner would need to claim. Check before going further.");
+    const partial = b.token && /^[A-Za-z0-9_-]{20,60}$/.test(b.token) ? (await pool.query("SELECT id FROM leads WHERE partial_token=$1 AND partial", [b.token])).rows[0] : null;
+    let id;
+    const vals = leadCols.map(c => f[c] === undefined ? null : f[c]);
+    if (partial) {
+      id = partial.id;
+      await pool.query(`UPDATE leads SET ${leadCols.map((c, i) => `${c}=$${i + 2}`).join(", ")}, partial=false, answers=$${leadCols.length + 2}, consent=true, consent_text=$${leadCols.length + 3}, next_action=$${leadCols.length + 4}, next_action_date=$${leadCols.length + 5}, created_at=now(), updated_at=now() WHERE id=$1`,
+        [id, ...vals, JSON.stringify(b).slice(0, 20000), f.consent_text, "Call the client (" + (f.best_time || "any time") + ")", due]);
+      await log(id, "created", "Check finished on the website");
+    } else {
+      const r = await pool.query(`INSERT INTO leads(source,consent,consent_text,next_action,next_action_date,answers,${leadCols.join(",")}) VALUES($1,$2,$3,$4,$5,$6,${leadCols.map((c, i) => "$" + (i + 7)).join(",")}) RETURNING id`,
+        [f.source, f.consent, f.consent_text, "Call the client (" + (f.best_time || "any time") + ")", due, JSON.stringify(b).slice(0, 20000), ...vals]);
+      id = r.rows[0].id;
+      await log(id, "created", "Enquiry received from " + f.source + (f.consent ? ", consent to contact given" : ""));
+    }
+    const dtoken = tok();
+    await pool.query("UPDATE leads SET detail_token=$2, ip=coalesce(ip,$3), user_agent=coalesce(user_agent,$4), referrer=coalesce(referrer,$5), utm=coalesce(utm,$6) WHERE id=$1", [id, dtoken, ipOfReq(req) || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null]);
+    if (f.for_whom === "help") await log(id, "check", `Check done by ${f.helper_name || "a helper"} (${f.helper_relation || "relationship not given"}) for ${f.first_name} ${f.last_name}. ${f.helper_ok ? "They confirmed the client knows and agrees." : "Client's agreement NOT confirmed: check on the call."} ${f.contact_name ? "We contact the helper; the client gave no number." : ""} The client must sign documents personally.`);
+    if (f.for_whom === "died") { await log(id, "check", `Estate claim: ${f.first_name} ${f.last_name} has died${f.death_date ? " (" + f.death_date + ")" : ""}. Contact is ${f.helper_name} (${f.helper_relation || "relationship not given"}). Verify the personal representative before any paperwork.`); await pool.query("UPDATE leads SET next_action='Estate claim: call the contact, ask for the death certificate and grant, confirm who the personal representative is' WHERE id=$1", [id]); }
+    if (f.upliftOnly || f.cb === "partner") await log(id, "check", "Child Benefit was paid to the partner, so no HRP on this record: check for married or widowed increases only.");
+    if (f.ft === "throughout") await log(id, "check", "Says they worked full time throughout: HRP unlikely. Check the years on the call before going further.");
+    if (f.pension === "full") await log(id, "check", "Already gets the full State Pension: missing HRP unlikely to change it. Look at uplifts.");
     if (f.ni_number && !validNi(f.ni_number)) await log(id, "check", "NI number given doesn't look valid: confirm it on the call.");
-    const ipAddr = (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
-    await pool.query("UPDATE leads SET ip=$2, user_agent=$3, referrer=$4, utm=$5 WHERE id=$1", [id, ipAddr || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null]);
-    f.ip = ipAddr;
-    await findDuplicate(id, f);
+    await findDuplicate(id, { ...f, ip: ipOfReq(req) });
+    const L = await getLeadRow(id);
+    await MSG.queue(L, "welcome");
     sendEmail(f.email, `${BRAND}: we've received your State Pension check`,
-      `Dear ${f.title ? f.title + " " : ""}${f.last_name},\n\nThank you for completing our State Pension check. Your reference is ${id}. One of our team will call you within one working day${f.best_time ? " (" + f.best_time.toLowerCase() + ")" : ""} to go through your answers.\n\nThere is nothing to pay and no obligation. Receiving Child Benefit doesn't automatically mean you're owed anything: we only make a claim if your HMRC and DWP records show one is supported. You can also apply to HMRC yourself for free.\n\nIf you have any questions, call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
-      .then(ok => ok && log(id, "email", "Confirmation email sent to client"));
+      `Dear ${f.contact_name || ((f.title ? f.title + " " : "") + f.last_name)},\n\nThank you for completing our State Pension check. The reference is ${id}. One of our team will call within one working day${f.best_time ? " (" + f.best_time.toLowerCase() + ")" : ""} to go through the answers.\n\nThere is nothing to pay and no obligation. Receiving Child Benefit doesn't automatically mean anything is owed: we only make a claim if the HMRC and DWP records show one is supported. You can also apply to HMRC yourself for free.\n\nIf you have any questions, call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
+      .then(ok => ok && log(id, "email", "Confirmation email sent"));
     sendEmail(NOTIFY_EMAIL, `New enquiry #${id}: ${f.first_name} ${f.last_name}`, `New enquiry from the website.\nBest time to call: ${f.best_time || "not given"}\nPhone: ${f.phone}\n\nOpen the CRM to view it.`);
-    res.json({ ok: true, ref: id });
+    res.json({ ok: true, ref: id, dtoken });
   } catch (e) { console.error(e); res.status(500).json({ ok: false, error: "Something went wrong. Please call us instead." }); }
+});
+/* optional second step on the website: the details HMRC and DWP need */
+app.post("/api/leads/:ref/details", async (req, res) => {
+  try {
+    const b = req.body || {};
+    const L = (await pool.query("SELECT * FROM leads WHERE id=$1 AND detail_token=$2", [parseInt(req.params.ref, 10) || 0, String(b.dtoken || "")])).rows[0];
+    if (!L || !b.dtoken) return res.status(403).json({ ok: false });
+    const dt = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : null;
+    const kids = (Array.isArray(b.children) ? b.children : []).slice(0, 7).map(c => ({ name: clip(c.name, 80), dob: dt(c.dob) || "", father: "" })).filter(c => c.name || c.dob).sort((a, c) => (a.dob || "9").localeCompare(c.dob || "9"));
+    const ni = normNi(b.ni) || L.ni_number;
+    const pc = clip(b.postcode, 10).toUpperCase() || null;
+    await pool.query(`UPDATE leads SET dob=coalesce($2,dob), hmrc_name=coalesce(nullif($3,''),hmrc_name), ni_number=$4, postcode=coalesce($5,postcode), address=coalesce(nullif($6,''),address), years_at_address=$7, prev_address=coalesce(nullif($8,''),prev_address),
+      prev_names=coalesce(nullif($9,''),prev_names), children=coalesce($10,children), partner_name=coalesce(nullif($11,''),partner_name), partner_dob=$12, marriage_date=coalesce($13,marriage_date), partner_death_date=coalesce($14,partner_death_date), partner_unknown=coalesce(nullif($15,''),partner_unknown),
+      details_done_at=now(), next_action=$16, next_action_date=current_date, updated_at=now() WHERE id=$1`,
+      [L.id, dt(b.dob), clip(b.hmrc_name, 120), ni, pc, clip(b.address, 300), clip(b.years_at_address, 10) || null, clip(b.prev_address, 300), clip(b.prev_names, 200), kids.length ? JSON.stringify(kids) : null, clip(b.partner_name, 120), dt(b.partner_dob), dt(b.marriage_date), dt(b.partner_death_date), clip(b.partner_unknown, 300), "Details completed online: confirm them on the call, then send the pack"]);
+    const after = await getLeadRow(L.id);
+    const V = validation(after, null).filter(v => v.key !== "signature" && v.key !== "hmrc" && v.st !== "ok");
+    await log(L.id, "case", `Client completed their details online${V.length ? ". Still to check: " + V.map(v => v.label + " (" + v.msg + ")").join("; ") : ". All checks passed"}`);
+    if (b.years_at_address === "lt4" && !clip(b.prev_address, 300)) await log(L.id, "check", "At current address under 4 years but no previous address given");
+    res.json({ ok: true });
+  } catch (e) { console.error(e); res.status(500).json({ ok: false }); }
 });
 
 /* public: client progress check */
@@ -590,7 +721,7 @@ app.post("/status", async (req, res) => {
     <p class="muted">Last updated ${fmtDate(iso(L.client_message_at || L.updated_at))}</p></div>
     ${["invoiced", "payment_plan", "fee_review"].includes(L.stage) && L.pay_token ? `<a class="btn" href="/pay/${L.pay_token}" style="font-size:1.1rem;padding:14px 18px;text-align:center">Pay your invoice</a>` : ""}
     <div class="panel"><h2>Send us a document</h2><p>Had a letter from DWP or HMRC? Take a clear photo and send it here. It's the quickest way to move your claim on.</p>
-      <form id="cup" style="display:grid;gap:10px"><label>What is it? <select id="ckind"><option value="arrears">DWP letter about my pension arrears</option><option value="dwp">Another DWP letter</option><option value="soa">My National Insurance record</option><option value="hmrc">A letter from HMRC</option><option value="other">Something else</option></select></label>
+      <form id="cup" style="display:grid;gap:10px"><label>What is it? <select id="ckind"><option value="arrears">DWP letter about my pension arrears</option><option value="dwp">Another DWP letter</option><option value="soa">My National Insurance record</option><option value="id">Photo ID or proof of address</option><option value="hmrc">A letter from HMRC</option><option value="other">Something else</option></select></label>
       <label>Photo or file <input type="file" id="cfile" accept="image/*,.pdf" capture="environment"></label><button style="font-size:1.05rem;padding:12px 18px">Send</button><p id="cmsg" class="muted" role="status"></p></form>
       <script>document.getElementById("cup").addEventListener("submit",function(e){e.preventDefault();var f=document.getElementById("cfile").files[0],m=document.getElementById("cmsg");if(!f){m.textContent="Choose a photo or file first.";return;}if(f.size>10*1024*1024){m.textContent="That file is too big. Please send a smaller photo, or call us.";return;}m.textContent="Sending…";var r=new FileReader();r.onload=function(){fetch("/status/upload",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({kind:document.getElementById("ckind").value,name:f.name,mime:f.type,data:String(r.result).split(",")[1]})}).then(function(x){return x.json();}).then(function(j){m.textContent=j.ok?"Thank you, we've received it. We'll be in touch if we need anything else.":(j.error||"Sorry, that didn't work. Please call us.");if(j.ok)document.getElementById("cfile").value="";}).catch(function(){m.textContent="Sorry, that didn't work. Please call us.";});};r.readAsDataURL(f);});</script>
       <p class="muted"><a href="/ni-record">How to get your National Insurance record (optional)</a></p></div>
@@ -621,15 +752,44 @@ app.post("/status/upload", express.json({ limit: "15mb" }), async (req, res) => 
   const good = id && Number(exp) > Date.now() && mac === crypto.createHmac("sha256", SESSION_SECRET).update("client:" + id + "." + exp).digest("hex");
   if (!good) return res.status(401).json({ ok: false, error: "Your session has ended. Please enter your details again." });
   const b = req.body || {}, data = String(b.data || "");
-  const kinds = { arrears: "arrears", dwp: "dwp", soa: "soa", hmrc: "other", other: "other" }, kind = kinds[b.kind] || "other";
+  const kinds = { arrears: "arrears", dwp: "dwp", soa: "soa", id: "id", hmrc: "other", other: "other" }, kind = kinds[b.kind] || "other";
   if (!/^[A-Za-z0-9+/=]+$/.test(data) || data.length < 10) return res.status(400).json({ ok: false, error: "That file couldn't be read. Please try a photo instead." });
   const size = Math.floor(data.length * 3 / 4); if (size > 10 * 1024 * 1024) return res.status(400).json({ ok: false, error: "That file is too big." });
   const name = "client-" + (clip(b.name, 120).replace(/[^\w .()-]/g, "_") || "upload");
   await pool.query("INSERT INTO files(lead_id,kind,name,mime,size,data) VALUES($1,$2,$3,$4,$5,decode($6,'base64'))", [Number(id), kind, name, clip(b.mime, 80) || "application/octet-stream", size, data]);
   await log(Number(id), "file", `Client uploaded ${FILE_KINDS[kind]}${b.kind === "hmrc" ? " (HMRC letter)" : ""}: ${name}`);
-  const next = kind === "arrears" ? "Client sent their DWP arrears letter: check it against the case, enter the arrears and invoice" : kind === "soa" ? "Client sent their NI record: record HRP for each tax year" : "Client sent a document: check it";
+  const next = kind === "arrears" ? "Client sent their DWP arrears letter: check it against the case, enter the arrears and invoice" : kind === "soa" ? "Client sent their NI record: record HRP for each tax year" : kind === "id" ? "Client sent ID documents: check them and update the ID check" : "Client sent a document: check it";
   await pool.query("UPDATE leads SET next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [Number(id), next]);
   res.json({ ok: true });
+});
+
+/* public: clients book a call back */
+function slots() {
+  const out = []; let d = today();
+  while (out.length < 5) { d = nextWorkingDay(d); out.push(d); }
+  return out.map(day => ({ day, times: ["09:30", "11:00", "12:30", "14:00", "15:30", "16:30"] }));
+}
+app.get("/book/:token", async (req, res) => {
+  const L = /^[A-Za-z0-9_-]{20,60}$/.test(req.params.token) ? (await pool.query("SELECT * FROM leads WHERE book_token=$1", [req.params.token])).rows[0] : null;
+  const shell = inner => page("Book a call", `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px;font-size:18px"><div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">Pick a time for us to call</h1></div>${inner}<p class="muted">Or call us free on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
+  if (!L) return res.status(404).send(shell(`<div class="panel"><p>This link isn't working. Please call us and we'll help.</p></div>`));
+  if (req.query.done) return res.send(shell(`<div class="panel" style="border-color:var(--good)"><p><b>Thank you.</b> We'll call ${esc(L.phone)} on ${esc(new Date(L.booked_at).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}.</p></div>`));
+  res.send(shell(`<form method="post" class="panel" style="display:grid;gap:14px"><p>We'll call <b>${esc(L.phone)}</b>. Choose a day and time (UK time):</p>
+    ${slots().map(s => `<fieldset style="border:0;padding:0;margin:0"><legend style="font-weight:700;margin-bottom:6px">${esc(fmtDate(s.day))} (${new Date(s.day + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long" })})</legend><div style="display:flex;gap:8px;flex-wrap:wrap">${s.times.map(t => `<label style="display:flex;gap:6px;align-items:center;border:2px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:600"><input type="radio" name="slot" value="${s.day}T${t}" required> ${t}</label>`).join("")}</div></fieldset>`).join("")}
+    <label>A different number to call? <span class="muted">(optional)</span><input name="alt" type="tel"></label><button style="font-size:1.1rem;padding:14px">Book my call</button></form>`));
+});
+app.post("/book/:token", async (req, res) => {
+  const L = /^[A-Za-z0-9_-]{20,60}$/.test(req.params.token) ? (await pool.query("SELECT * FROM leads WHERE book_token=$1", [req.params.token])).rows[0] : null;
+  const slot = String(req.body.slot || "");
+  if (!L || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(slot)) return res.redirect("/book/" + req.params.token);
+  /* slots are UK time: convert with the UK offset on that date */
+  const guess = new Date(slot + ":00Z"), ukHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/London", hour: "numeric", hour12: false }).format(guess));
+  const at = new Date(guess.getTime() - (ukHour - guess.getUTCHours()) * 3600e3);
+  const alt = clip(req.body.alt, 30);
+  await pool.query("UPDATE leads SET booked_at=$2, next_action=$3, next_action_date=$4, updated_at=now() WHERE id=$1", [L.id, at.toISOString(), `Booked call at ${slot.slice(11)} UK time${alt ? " on " + alt : ""}`, slot.slice(0, 10)]);
+  await log(L.id, "call", `Client booked a call for ${slot.replace("T", " ")} UK time${alt ? ", on " + alt : ""}`);
+  await MSG.queue({ ...(await getLeadRow(L.id)) }, "booked_" + slot, { body: MSG.T.booked({ ...(await getLeadRow(L.id)) }) });
+  res.redirect("/book/" + req.params.token + "?done=1");
 });
 
 /* login */
@@ -702,7 +862,10 @@ app.get("/today", async (req, res) => {
   <p class="muted">${sortV ? `Sorted by estimated value, highest first, so the biggest claims move fastest. <a href="/today?sort=due">Sort by due date</a>` : `Sorted by due date. <a href="/today">Sort by estimated value</a>`}</p>
   <div class="panel tablewrap"><table><thead><tr><th>Due</th><th>Client</th><th>Est. value</th><th>Stage</th><th>Action</th><th>Phone</th><th>Best time</th></tr></thead><tbody>
   ${rows.map(r => `<tr><td>${dueBadge(r.next_action_date)}</td><td><a href="/lead/${r.id}">${esc(r.first_name)} ${esc(r.last_name)}</a>${r.vulnerable ? ` <span class="pill bad">Vulnerable</span>` : ""}</td><td class="num">${r.est ? gbp(r.est.amount).replace(/\.00$/, "") + (r.est.confirmed ? "" : "*") : ""}</td><td>${esc(STAGE[r.stage]?.label)}</td><td>${esc(r.next_action)}</td><td class="num">${esc(r.phone)}</td><td>${esc(r.best_time)}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">Nothing due. New enquiries will appear here on the next working day.</td></tr>`}
-  </tbody></table></div><p class="muted">Estimates are an "up to" figure for ranking only: they assume every missing year counts in full. Real arrears are usually lower (DWP's average is £8,377). * means the missing years aren't confirmed from HMRC's record yet.</p>`, { nav: "today" }));
+  </tbody></table></div>
+  ${await (async () => { const st = await stuckCases(); return `<div class="panel tablewrap"><h2>Stuck cases <span class="pill ${st.length ? "bad" : "good"}">${st.length}</span></h2><p class="muted" style="margin:0">Open cases with no activity for longer than their stage normally takes (intake 3 days, documents 7, HMRC and DWP 35, review 7, CF411 10, outcome and fees 21).</p>
+    <table><tbody>${st.slice(0, 50).map(r => `<tr><td><a href="/lead/${r.id}">${esc(r.first_name)} ${esc(r.last_name)}</a></td><td>${esc(STAGE[r.stage]?.label)}</td><td class="num"><span class="due over">${r.days} days quiet</span></td><td class="muted">${esc(r.next_action || "No next action set")}</td></tr>`).join("") || `<tr><td class="muted">Nothing stuck.</td></tr>`}</tbody></table></div>`; })()}
+  <p class="muted">Estimates are an "up to" figure for ranking only: they assume every missing year counts in full. Real arrears are usually lower (DWP's average is £8,377). * means the missing years aren't confirmed from HMRC's record yet.</p>`, { nav: "today" }));
 });
 
 /* fees */
@@ -791,6 +954,12 @@ app.get("/lead/:id", async (req, res) => {
     <button class="btn ghost">Save</button></form>
   <div class="grid2">
     <div style="display:grid;gap:18px">
+      ${["new", "contacted", "qualified", "pack_sent"].includes(L.stage) ? `<form class="panel" method="post" action="/lead/${L.id}/call">
+        <h2>Log a call <span class="pill">${L.call_attempts || 0} tried</span>${L.booked_at ? ` <span class="pill good">Booked: ${esc(new Date(L.booked_at).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }))}</span>` : ""}</h2>
+        <p class="muted" style="margin:0">Call ${esc(L.contact_name ? L.contact_name + " (" + (L.helper_relation || "helper") + ")" : "the client")} on <b class="num">${esc(L.phone)}</b>${L.mobile ? ` or mobile <b class="num">${esc(L.mobile)}</b>` : ""}${L.helper_phone && L.helper_phone !== L.phone ? `, helper ${esc(L.helper_name)} on <b class="num">${esc(L.helper_phone)}</b>` : ""}. Best time: ${esc(L.best_time || "any")}.</p>
+        <input name="note" placeholder="Note (optional)" style="width:100%">
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button name="outcome" value="spoke">Spoke to them</button><button class="btn ghost" name="outcome" value="no_answer">No answer</button><button class="btn ghost" name="outcome" value="voicemail">Left voicemail</button><button class="btn ghost" name="outcome" value="wrong_number">Wrong number</button></div>
+        <small class="muted">No answer sets the next try automatically (6 tries over about 10 working days at different times), and texts a "book a call" link after the 2nd and 4th tries.</small></form>` : ""}
       <form class="panel" method="post" action="/lead/${L.id}/stage">
         <h2>Move to stage</h2>
         <div class="inline" style="display:flex;gap:8px;flex-wrap:wrap"><select name="stage">${groups.map(g => `<optgroup label="${esc(g)}">${STAGES.filter(s => s.group === g).map(s => `<option value="${s.id}" ${s.id === L.stage ? "selected" : ""}>${esc(s.label)}</option>`).join("")}</optgroup>`).join("")}</select>
@@ -885,8 +1054,14 @@ app.get("/lead/:id", async (req, res) => {
         <script>document.getElementById("upform").addEventListener("submit",function(e){e.preventDefault();var f=document.getElementById("upfile").files[0],m=document.getElementById("upmsg");if(!f){m.textContent="Choose a file first";return;}if(f.size>10*1024*1024){m.textContent="Files must be under 10 MB";return;}
           m.textContent="Uploading…";var r=new FileReader();r.onload=function(){fetch("/lead/${L.id}/files",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:document.getElementById("upkind").value,name:f.name,mime:f.type,data:String(r.result).split(",")[1]})}).then(function(x){return x.json();}).then(function(j){if(j.ok)location.reload();else m.textContent=j.error||"Upload failed";}).catch(function(){m.textContent="Upload failed";});};r.readAsDataURL(f);});</script>
       </div>
-      <div class="panel"><h2>Check answers</h2><dl>
+      <div class="panel"><h2>Check answers</h2>${L.partial ? `<p class="pill bad" style="justify-self:start">Unfinished check: they stopped part way. A reminder text goes automatically.</p>` : ""}${L.details_done_at ? `<p class="pill good" style="justify-self:start">Completed their details online ${fmtDate(iso(L.details_done_at))}: confirm them on the call</p>` : ""}<dl>
         <dt>Who for</dt><dd>${esc(label("for_whom", L.for_whom))}</dd>
+        ${L.helper_name ? `<dt>${L.for_whom === "died" ? "Contact for the estate" : "Helper"}</dt><dd>${esc(L.helper_name)}${L.helper_relation ? ` (${esc(L.helper_relation)})` : ""}${L.helper_phone ? `<br><span class="num">${esc(L.helper_phone)}</span>` : ""}${L.helper_email ? `<br>${esc(L.helper_email)}` : ""}${L.for_whom === "help" ? `<br><small class="${L.helper_ok ? "muted" : ""}" style="${L.helper_ok ? "" : "color:var(--bad)"}">${L.helper_ok ? "Confirmed the client knows and agrees" : "Client's agreement not confirmed"}</small>` : ""}</dd>` : ""}
+        ${L.death_date ? `<dt>Died</dt><dd>${esc(L.death_date)}</dd>` : ""}
+        ${L.sp_band || L.sp_start_year ? `<dt>State Pension</dt><dd>${esc(label("sp_band", L.sp_band) || "")}${L.sp_start_year ? ` · started ${L.sp_start_year}` : ""}</dd>` : ""}
+        ${L.ft_from ? `<dt>Back to full time</dt><dd>${L.ft_from}</dd>` : ""}
+        ${L.years_at_address ? `<dt>At address</dt><dd>${L.years_at_address === "lt4" ? "Less than 4 years" : "4 years or more"}${L.prev_address ? `<br><small class="muted">Previous: ${esc(L.prev_address)}</small>` : ""}</dd>` : ""}
+        ${L.mobile ? `<dt>Mobile</dt><dd class="num">${esc(L.mobile)}</dd>` : ""}
         <dt>Child Benefit 1978–2010</dt><dd>${esc(label("cb", L.cb))}</dd>
         ${L.care ? `<dt>Carer or foster</dt><dd>${esc(label("care", L.care))}</dd>` : ""}
         <dt>Born</dt><dd>${L.born || ""}</dd><dt>Children born</dt><dd>${L.kid1 ? (L.kid1 === L.kid2 || !L.kid2 ? L.kid1 : `${L.kid1} to ${L.kid2}`) : "Not given"}</dd>
@@ -1019,7 +1194,7 @@ app.post("/lead/:id/case", async (req, res) => {
     await log(L.id, "kyc", `ID check: ${KYC[kyc]}`);
     if (kyc === "passed" && L.stage === "signed") await pool.query("UPDATE leads SET next_action=$2, next_action_date=$3 WHERE id=$1", [L.id, "Invite the client to share their NI record (optional), and send the DWP information request", today()]);
     if (kyc === "failed") await pool.query("UPDATE leads SET next_action=$2, next_action_date=$3 WHERE id=$1", [L.id, "ID check failed: ask for documents or close the case", today()]);
-    if (kyc === "escalation") await pool.query("UPDATE leads SET next_action=$2, next_action_date=$3 WHERE id=$1", [L.id, "Manager to review the ID check escalation", nextWorkingDay(today())]);
+    if (kyc === "escalation") { await pool.query("UPDATE leads SET next_action=$2, next_action_date=$3 WHERE id=$1", [L.id, "ID check referred: client asked for photo ID and proof of address; manager to review", nextWorkingDay(today())]); await MSG.queue(await getLeadRow(L.id), "id_docs"); await log(L.id, "kyc", "Asked the client for photo ID and proof of address"); }
   }
   if (ni && !validNi(ni)) await log(L.id, "check", "NI number saved but doesn't look valid");
   if (!clip(b.partner_name, 120) && clip(b.partner_unknown, 300) && clip(b.partner_unknown, 300) !== (L.partner_unknown || "")) await log(L.id, "check", "Partner details not known: " + clip(b.partner_unknown, 300) + ". Review before submitting.");
@@ -1348,6 +1523,11 @@ app.get("/reports", async (req, res) => {
   <div class="panel"><h2>Quality and risk</h2><table><tbody><tr><td>ID checks failed / escalated</td><td class="num">${f.kyc_failed} / ${f.kyc_esc}</td></tr><tr><td>Packs needing a re-sign</td><td class="num">${resign.resigned} of ${resign.packs}</td></tr>
     <tr><td>HMRC rejections or other-agent issues</td><td class="num">${f.hmrc_issues}</td></tr><tr><td>Wrong claimant (partner got Child Benefit)</td><td class="num">${f.wrong_claimant}</td></tr>
     ${comp.map(c => `<tr><td>${c.kind === "complaint" ? "Complaints" : "Data requests"} (open)</td><td class="num">${c.n} (${c.open})</td></tr>`).join("")}</tbody></table></div>
+  ${await (async () => { const fr = await q(`SELECT step, count(DISTINCT sid) AS n FROM funnel_events WHERE at > now() - interval '30 days' GROUP BY step`); const m = Object.fromEntries(fr.map(r => [r.step, Number(r.n)]));
+    const order = [["cb", "Child Benefit question"], ["for", "Who it's for"], ["early", "Name and phone"], ["pension", "State Pension"], ["spinfo", "Pension amount and start"], ["born", "Year of birth"], ["kids", "Children"], ["ft", "Work history"], ["status", "Marital status"], ["credit", "Pension Credit"], ["contact", "Contact details"], ["result", "Saw the result"], ["details", "Started 'finish details'"], ["details_done", "Finished details"]];
+    const top = m.cb || 0; const stops = fr.filter(r => r.step.startsWith("stop:"));
+    return `<div class="panel tablewrap"><h2>Website check: where people stop (last 30 days)</h2><table><thead><tr><th>Step</th><th>People</th><th>Of those who started</th></tr></thead><tbody>${order.filter(([k]) => m[k] !== undefined).map(([k, l]) => `<tr><td>${l}</td><td class="num">${m[k]}</td><td class="num">${top ? Math.round(m[k] / top * 100) + "%" : "–"}</td></tr>`).join("") || `<tr><td colspan="3" class="muted">No visits recorded yet.</td></tr>`}
+      ${stops.map(r => `<tr><td class="muted">Stopped: ${esc(r.step.slice(5))}</td><td class="num">${r.n}</td><td></td></tr>`).join("")}</tbody></table></div>`; })()}
   <div class="panel tablewrap"><h2>By source</h2><table><thead><tr><th>Source</th><th>Enquiries</th><th>Signed</th><th>Paid</th></tr></thead><tbody>${src.map(r => `<tr><td>${esc(r.src)}</td><td class="num">${r.n}</td><td class="num">${r.signed} (${pct(r.signed, r.n)})</td><td class="num">${r.paid}</td></tr>`).join("")}</tbody></table></div>
   </div>`, { nav: "reports" }));
 });
@@ -1355,6 +1535,37 @@ app.post("/admin/rates", async (req, res) => {
   for (const k of ["rate_basic", "rate_nsp"]) { const v = parseFloat(req.body[k]); await pool.query("INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [k, v > 50 && v < 1000 ? String(v) : null]); }
   RATES.at = 0; res.redirect("/admin?done=" + encodeURIComponent("State Pension rates saved."));
 });
+
+/* no-answer cadence: 6 tries over about 10 working days at different times, a text after the second */
+const CADENCE = [[0, "Try again this afternoon"], [1, "Try again in the morning"], [2, "Try again in the afternoon"], [4, "Try again early evening, before 5pm"], [7, "Last tries: morning"], [10, "Final try, then close as no contact if no answer"]];
+app.post("/lead/:id/call", async (req, res) => {
+  const L = await getLeadRow(req.params.id); if (!L) return res.redirect("/");
+  const outcome = ["no_answer", "voicemail", "wrong_number", "spoke", "callback"].includes(req.body.outcome) ? req.body.outcome : "no_answer";
+  if (outcome === "spoke") {
+    await pool.query("UPDATE leads SET last_call_at=now(), stage=CASE WHEN stage='new' THEN 'contacted' ELSE stage END, updated_at=now() WHERE id=$1", [L.id]);
+    await log(L.id, "call", "Spoke to the client" + (req.body.note ? ": " + clip(req.body.note, 500) : ""));
+    return res.redirect("/lead/" + L.id + "?ok=1");
+  }
+  if (outcome === "wrong_number") {
+    await pool.query("UPDATE leads SET phone_bad=true, last_call_at=now(), next_action='Wrong number: try email, text or the helper; post a letter if nothing else', next_action_date=current_date, updated_at=now() WHERE id=$1", [L.id]);
+    await log(L.id, "call", "Wrong number"); return res.redirect("/lead/" + L.id + "?ok=1");
+  }
+  const n = L.call_attempts + 1, step = CADENCE[Math.min(n, CADENCE.length) - 1];
+  let bt = L.book_token; if (!bt) { bt = crypto.randomBytes(18).toString("base64url"); }
+  const nextDate = n >= CADENCE.length ? today() : (step[0] === 0 ? today() : (() => { let d = today(); for (let i = 0; i < step[0]; i++) d = nextWorkingDay(d); return d; })());
+  await pool.query("UPDATE leads SET call_attempts=$2, last_call_at=now(), book_token=$3, next_action=$4, next_action_date=$5, updated_at=now() WHERE id=$1",
+    [L.id, n, bt, n >= CADENCE.length ? "6 calls with no answer: close as no contact, or post a letter" : `Call attempt ${n + 1}: ${(CADENCE[n] || CADENCE[CADENCE.length - 1])[1]}`, nextDate]);
+  await log(L.id, "call", `Call attempt ${n}: ${outcome === "voicemail" ? "left a voicemail" : "no answer"}`);
+  if (n === 2 || n === 4) await MSG.queue({ ...(await getLeadRow(L.id)) }, "missed_call_" + n, { body: MSG.T.missed_call({ ...(await getLeadRow(L.id)) }) });
+  res.redirect("/lead/" + L.id + "?ok=1");
+});
+/* cases with no activity for longer than their stage normally takes */
+const STUCK_DAYS = { Intake: 3, Documents: 7, "ID check": 3, HMRC: 35, DWP: 35, Review: 7, CF411: 10, Outcome: 21, Fees: 21, Hold: 14 };
+async function stuckCases() {
+  const { rows } = await pool.query(`SELECT l.*, (SELECT max(at) FROM activity a WHERE a.lead_id=l.id) AS last_act FROM leads l WHERE stage <> ALL(${DONE_SQL}) AND NOT partial`);
+  return rows.map(r => { const g = STAGE[r.stage]?.group || "Intake", lim = STUCK_DAYS[g] || 14, days = Math.floor((Date.now() - new Date(r.last_act || r.updated_at)) / 86400e3); return { ...r, days, lim, group: g }; })
+    .filter(r => r.days > r.lim).sort((a, b) => (b.days - b.lim) - (a.days - a.lim));
+}
 
 /* settings: test data */
 const FIRST = ["Margaret","Patricia","Susan","Linda","Christine","Janet","Elaine","Carol","Pauline","Barbara","Jean","Sandra","Maureen","Valerie","Brenda","Kathleen","Shirley","Anne","Gillian","Hilary","Lesley","Wendy","Doreen","Rita","Joan","Sheila","Eileen","Marion","Diane","Irene"];

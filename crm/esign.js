@@ -96,20 +96,36 @@ module.exports = function esign(ctx) {
   async function byToken(t) { if (!/^[A-Za-z0-9_-]{20,80}$/.test(t || "")) return null; return (await pool.query("SELECT * FROM sign_requests WHERE token=$1", [t])).rows[0]; }
   const getLead = async id => (await pool.query("SELECT * FROM leads WHERE id=$1", [id])).rows[0];
 
-  function dobForm(r, err) {
+  function dobForm(r, err, tries) {
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const alt = (tries || r.tries || 0) >= 2;
     return shell("Confirm it's you", `<div class="panel"><h1>Your documents to sign</h1>
       <p>For your security, please confirm your date of birth before we show your documents.</p>
       ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ""}
       <form method="post" action="/sign/${r.token}/verify" style="display:grid;gap:14px" autocomplete="off">
       <fieldset style="border:0;padding:0;margin:0;display:flex;gap:10px;flex-wrap:wrap"><legend style="font-weight:700;margin-bottom:6px">Date of birth</legend>
-      <label>Day <input name="d" inputmode="numeric" maxlength="2" size="3" required></label>
-      <label>Month <input name="m" inputmode="numeric" maxlength="2" size="3" required></label>
-      <label>Year <input name="y" inputmode="numeric" maxlength="4" size="5" required></label></fieldset>
-      <button class="big">Continue</button></form></div>`);
+      <label>Day <select name="d" required><option value="">Day</option>${Array.from({ length: 31 }, (_, i) => `<option>${i + 1}</option>`).join("")}</select></label>
+      <label>Month <select name="m" required><option value="">Month</option>${months.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("")}</select></label>
+      <label>Year <select name="y" required><option value="">Year</option>${Array.from({ length: 50 }, (_, i) => `<option>${1975 - i}</option>`).join("")}</select></label></fieldset>
+      <button class="big">Continue</button></form></div>
+      ${alt ? `<form class="panel" method="post" action="/sign/${r.token}/verify" style="display:grid;gap:12px" autocomplete="off"><h2>Or use your postcode and phone number instead</h2>
+        <label>Your postcode <input name="pc" autocapitalize="characters" required></label>
+        <label>Last 4 digits of the phone number we have for you <input name="l4" inputmode="numeric" maxlength="4" required></label>
+        <input type="hidden" name="alt" value="1"><button class="big">Continue</button></form>` : ""}
+      <form class="panel" method="post" action="/sign/${r.token}/callme" style="display:grid;gap:10px"><p style="margin:0">Having trouble? We'll call you and help, or post paper copies.</p><button class="btn ghost">Please call me</button></form>`);
   }
+  const KEY_POINTS = {
+    agreement: ["You can claim yourself for free through GOV.UK.", "Our fee is 36% of any arrears DWP pays you, invoiced only after DWP confirms them. Nothing to pay if nothing is paid.", "You can cancel within 14 days and pay nothing."],
+    hmrc: ["Lets HMRC talk to us about your National Insurance record.", "It doesn't let anyone receive money for you."],
+    dwp: ["Lets DWP tell us about your State Pension.", "DWP still pays any money straight to you."],
+    nirequest: ["Asks HMRC for your record for the listed tax years only.", "HMRC may contact you to check you agreed."],
+    cf411: ["This is your claim to HMRC.", "Only sign if every detail is right."]
+  };
   function docBlock(d, i, total) {
-    return `<section style="display:grid;gap:10px"><div class="steps-mini noprint"><span>Document ${i + 1} of ${total}</span></div>
-      <article class="doc" aria-label="${esc(d.title)}">${d.html}</article>
+    const kp = KEY_POINTS[d.key];
+    return `<section style="display:grid;gap:10px"><div class="steps-mini noprint"><span>Document ${i + 1} of ${total}</span> <button type="button" class="btn ghost readaloud" data-doc="doc${i}" style="padding:4px 12px">Read it to me</button></div>
+      ${kp ? `<div class="panel noprint" style="background:var(--tint)"><b>In short:</b><ul style="margin:6px 0 0;padding-left:22px">${kp.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>` : ""}
+      <article class="doc" id="doc${i}" aria-label="${esc(d.title)}">${d.html}</article>
       <label class="ack noprint"><input type="checkbox" name="ack_${esc(d.key)}" value="1" required> I have read and understood "${esc(d.title)}"</label></section>`;
   }
 
@@ -125,6 +141,17 @@ module.exports = function esign(ctx) {
         if (r.status !== "signed" && new Date(r.expires_at) < new Date()) return res.send(shell("Expired", `<div class="panel"><h1>This link has expired</h1><p>Please call us and we'll send you a new one.</p></div>`));
         if (!verified(req, r)) return res.send(dobForm(r));
         if (r.status === "signed") return res.redirect(`/sign/${r.token}/copy`);
+        const L0 = await getLead(r.lead_id);
+        if (r.kind === "pack" && !req.query.confirmed) {
+          const kids = Array.isArray(L0.children) ? L0.children.filter(c => c && (c.name || c.dob)) : [];
+          const row = (k, v) => `<tr><th>${esc(k)}</th><td>${v ? esc(v) : `<span class="muted">Not given</span>`}</td></tr>`;
+          return res.send(shell("Check your details", `<div class="panel"><h1>First, are these details right?</h1>
+            <p>These details go on your forms to HMRC and DWP. A wrong detail can get a form rejected, so please check them carefully.</p>
+            <table class="doc-fields"><tbody>${row("Name", [L0.title, L0.first_name, L0.last_name].filter(Boolean).join(" "))}${L0.hmrc_name ? row("Name on your pension letter", L0.hmrc_name) : ""}${row("Previous surnames", L0.prev_names || L0.maiden_name)}${row("Date of birth", L0.dob ? ukDate(L0.dob) : "")}${row("Address", [L0.address, L0.postcode].filter(Boolean).join(", "))}${row("National Insurance number", L0.ni_number ? L0.ni_number.replace(/^(..)(..)(..)(..)(.)$/, "$1 $2 $3 $4 $5") : "")}${kids.length ? row("Children", kids.map(c => `${c.name || "?"}${c.dob ? " (" + ukDate(c.dob) + ")" : ""}`).join("; ")) : ""}</tbody></table>
+            <a class="btn big" href="/sign/${r.token}?confirmed=1" style="text-align:center">Yes, these are right. Show my documents</a></div>
+            <form class="panel" method="post" action="/sign/${r.token}/wrong" style="display:grid;gap:10px"><h2>Something's wrong?</h2><label>What needs changing? <textarea name="what" rows="3" required></textarea></label><button class="btn ghost">Tell us and don't sign yet</button></form>`));
+        }
+        if (r.kind === "pack" && req.query.confirmed && !r.opened_at) await event(r.id, "Confirmed their details are correct", req);
         if (!r.opened_at) { await pool.query("UPDATE sign_requests SET opened_at=now(), status=CASE WHEN status='sent' THEN 'opened' ELSE status END WHERE id=$1", [r.id]); await event(r.id, "Opened the documents", req); }
         const L = await getLead(r.lead_id);
         const docs = r.docs;
@@ -160,9 +187,27 @@ module.exports = function esign(ctx) {
               document.getElementById("png").value=used?c.toDataURL("image/png"):"";
               this.querySelector('button[type=submit]').disabled=true;
             });
-          })();</script>`));
+          })();</script>
+          <script>(function(){if(!("speechSynthesis" in window)){document.querySelectorAll(".readaloud").forEach(function(b){b.hidden=true;});return;}
+            document.querySelectorAll(".readaloud").forEach(function(b){b.addEventListener("click",function(){var s=window.speechSynthesis;if(s.speaking){s.cancel();b.textContent="Read it to me";return;}var u=new SpeechSynthesisUtterance(document.getElementById(b.dataset.doc).innerText);u.lang="en-GB";u.rate=0.9;u.onend=function(){b.textContent="Read it to me";};s.speak(u);b.textContent="Stop reading";});});})();</script>`));
       });
 
+      app.post("/sign/:token/callme", async (req, res) => {
+        const r = await byToken(req.params.token); if (!r) return res.status(404).send(notFound());
+        await event(r.id, "Asked us to call to help", req);
+        await pool.query("UPDATE leads SET next_action='Client asked for help with their signing link: call them today', next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id]);
+        await log(r.lead_id, "esign", "Client pressed 'Please call me' on the signing page");
+        res.send(shell("We'll call you", `<div class="panel"><h1>Thank you, we'll call you</h1><p>One of our team will call you shortly, weekdays 9am to 5pm, to help. You can also call us free on ${esc(PHONE)}.</p></div>`));
+      });
+      app.post("/sign/:token/wrong", async (req, res) => {
+        const r = await byToken(req.params.token); if (!r) return res.status(404).send(notFound());
+        if (!verified(req, r)) return res.redirect(`/sign/${r.token}`);
+        const what = clip(req.body.what, 1000) || "(not said)";
+        await event(r.id, "Client said some details are wrong: " + what, req);
+        await pool.query("UPDATE leads SET stage=CASE WHEN stage='pack_sent' THEN 'resign' ELSE stage END, next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id, "Client says details are wrong before signing: correct them and send a new version"]);
+        await log(r.lead_id, "esign", "Client reported wrong details before signing: " + what);
+        res.send(shell("Thank you", `<div class="panel"><h1>Thank you for telling us</h1><p>Please don't sign this version. We'll correct the details and send you a new copy, usually the same working day. If you'd like to talk it through, call us free on ${esc(PHONE)}.</p></div>`));
+      });
       app.post("/sign/:token/verify", async (req, res) => {
         const r = await byToken(req.params.token); if (!r) return res.status(404).send(notFound());
         if (["void", "locked"].includes(r.status)) return res.redirect(`/sign/${r.token}`);
@@ -175,12 +220,23 @@ module.exports = function esign(ctx) {
           await event(r.id, "Confirmed date of birth", req);
           setVerified(res, r); return res.redirect(`/sign/${r.token}`);
         }
+        /* fallback after two wrong dates: postcode plus last 4 digits of the phone we hold */
+        if (req.body.alt === "1" && r.tries >= 2 && L) {
+          const pc = String(req.body.pc || "").replace(/\s/g, "").toUpperCase(), l4 = String(req.body.l4 || "").replace(/\D/g, "");
+          const phones = [L.phone, L.mobile, L.helper_phone].filter(Boolean).map(p => String(p).replace(/\D/g, ""));
+          if (pc && L.postcode && pc === String(L.postcode).replace(/\s/g, "").toUpperCase() && l4.length === 4 && phones.some(p => p.endsWith(l4))) {
+            await event(r.id, "Confirmed identity with postcode and phone number (date of birth didn't match)", req);
+            await log(r.lead_id, "check", "Client couldn't confirm the date of birth we hold but matched postcode and phone. Check the date of birth on file.");
+            setVerified(res, r); return res.redirect(`/sign/${r.token}`);
+          }
+        }
         t.push(Date.now()); fail.set(ip, t);
         const tries = r.tries + 1;
         await pool.query("UPDATE sign_requests SET tries=$2, status=CASE WHEN $2 >= $3 AND status <> 'signed' THEN 'locked' ELSE status END WHERE id=$1", [r.id, tries, MAX_TRIES]);
         await event(r.id, `Wrong date of birth entered (attempt ${tries})`, req);
         if (tries >= MAX_TRIES && r.status !== "signed") { await log(r.lead_id, "esign", "Signing link locked after too many wrong dates of birth. Send a new version."); return res.redirect(`/sign/${r.token}`); }
-        res.send(dobForm(r, `That date of birth doesn't match our records. You have ${MAX_TRIES - tries} ${MAX_TRIES - tries === 1 ? "try" : "tries"} left.`));
+        if (tries === 2) await pool.query("UPDATE leads SET next_action='Client is struggling to open their signing link: call to help', next_action_date=current_date WHERE id=$1", [r.lead_id]);
+        res.send(dobForm(r, `Those details don't match our records. You have ${MAX_TRIES - tries} ${MAX_TRIES - tries === 1 ? "try" : "tries"} left.`, tries));
       });
 
       app.post("/sign/:token", async (req, res) => {

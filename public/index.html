@@ -423,97 +423,154 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
 
   /* checker */
   const panel=document.getElementById("panel"), fill=document.getElementById("barFill"), bar=document.getElementById("bar"), timeLeft=document.getElementById("timeLeft");
-  const A={};
-  const CRM_API="https://missing-years-crm.onrender.com/api/leads";
-  let sent=null;
+  const API="https://missing-years-crm.onrender.com/api";
+  const CRM_API=API+"/leads";
+  const SAVE_KEY="myCheck", PHONE="0800 999 999";
+  let A={}, sent=null, token=null, idx=0;
+  const sid=(()=>{try{let v=sessionStorage.getItem("mySid");if(!v){v=Math.random().toString(36).slice(2)+Date.now().toString(36);sessionStorage.setItem("mySid",v);}return v;}catch(e){return "x"+Math.random().toString(36).slice(2);}})();
+  const utm=[...new URLSearchParams(location.search)].filter(([k])=>/^utm_|^gclid$|^fbclid$/.test(k)).map(([k,v])=>k+"="+v).join("&").slice(0,300);
+  const esc=t=>String(t??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const post=(path,body)=>fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}).then(r=>r.json().then(j=>({ok:r.ok&&j.ok!==false,...j})).catch(()=>({ok:false}))).catch(()=>({ok:false}));
+  function track(step){try{navigator.sendBeacon&&navigator.sendBeacon(API+"/events",new Blob([JSON.stringify({sid,step,utm})],{type:"text/plain"}));}catch(e){}}
+  function save(){A._idx=idx;try{localStorage.setItem(SAVE_KEY,JSON.stringify({A,idx,token,at:Date.now()}));}catch(e){}if(token)post("/partial/"+token,{answers:A});}
+  function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
   async function sendLead(){
-    const consentText=document.querySelector(".consent span")?.textContent.trim()||"";
-    try{
-      const r=await fetch(CRM_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...A,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||"",ref_url:document.referrer||"",utm:[...new URLSearchParams(location.search)].filter(([k])=>/^utm_|^gclid$|^fbclid$/.test(k)).map(([k,v])=>k+"="+v).join("&").slice(0,300)})});
-      const j=await r.json().catch(()=>({}));
-      sent=r.ok&&j.ok?{ok:true,ref:j.ref}:{ok:false,error:j.error};
-    }catch(e){sent={ok:false};}
+    const consentText="I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.";
+    const j=await post("/leads",{...A,token,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||"",ref_url:document.referrer||"",utm});
+    sent=j.ok?{ok:true,ref:j.ref,dtoken:j.dtoken}:{ok:false,error:j.error};
+    if(sent.ok)clearSave();
   }
   const years=[];for(let y=1975;y>=1925;y--)years.push(String(y));
+  const yrsBack=[];for(let y=2010;y>=1978;y--)yrsBack.push(String(y));
+  const spYears=[];for(let y=2026;y>=1985;y--)spYears.push(String(y));
+  const hrpPath=()=>A.cb==="yes"||A.cb==="unsure"||(A.cb==="no"&&A.care==="yes");
+  const you=(a,b)=>A.for==="me"?a:b;
   const steps=[
-    {id:"cb",q:"Did you (or they) receive Child Benefit, or Family Allowance, for any children between 1978 and 2010?",
-     help:"We mean Child Benefit paid to you personally, not to your husband, wife or partner.",
-     opts:[["yes","Yes, it was paid to me"],["partner","No, it was paid to my partner"],["no","No"],["unsure","Not sure"]],
-     stop:{partner:"Home Responsibilities Protection was given to the person the Child Benefit was paid to, so any claim for those years would normally be your partner's to make. If your partner would like their record checked, they can start their own check here. If you cared for someone sick or disabled, or fostered a child, go back and choose \"No\" so we can ask about that."}},
+    {id:"cb",q:"Was Child Benefit (or Family Allowance) paid to you for any children between 1978 and 2010?",
+     help:"We mean paid to you personally, not to your husband, wife or partner. If you're checking for someone else, answer for them.",
+     opts:[["yes","Yes, it was paid to me"],["partner","No, it was paid to my partner"],["no","No"],["unsure","Not sure"]]},
+    {id:"partnerq",custom:renderPartner,when:()=>A.cb==="partner"},
     {id:"care",q:"Between 1978 and 2010, did you care for someone sick or disabled, or foster a child?",when:()=>A.cb==="no",
-     opts:[["yes","Yes"],["no","No"]],
-     stop:{no:"HRP was mainly for parents receiving Child Benefit and for carers, so it doesn't look as though missing HRP applies. If you're married, widowed, divorced or over 80, a different underpayment may still apply. Go back and choose \"Not sure\" if you'd like us to check."}},
-    {id:"for",q:"Who is this check for?",
+     opts:[["yes","Yes"],["no","No"]]},
+    {id:"for",q:"Who is this check for?",when:()=>!A.forLocked,
      opts:[["me","Myself"],["help","Someone I'm helping, such as a parent"],["died","Someone who has died","Their estate may still be owed arrears"]]},
-    {id:"pension",q:"How much State Pension do you (or they) receive?",help:"Your annual letter from the Pension Service shows this. An estimate is fine.",
+    {id:"early",custom:renderEarly},
+    {id:"pension",q:()=>you("How much State Pension do you receive?",A.for==="died"?"How much State Pension did they receive?":"How much State Pension do they receive?"),help:"The yearly letter from the Pension Service shows this. An estimate is fine.",
      opts:[["less","Less than the full State Pension"],["full","The full State Pension"],["none","Not receiving it yet"],["unsure","Not sure"]],
-     stop:{full:"If you already receive the full State Pension, missing years shouldn't have reduced it, so there's unlikely to be anything to claim.",
-           none:"Because your State Pension hasn't started, there are no arrears to claim yet. It's still worth fixing your record now so your pension is right from the start. You can do this free at GOV.UK by searching \"Home Responsibilities Protection\". We only charge on backdated arrears, so we wouldn't charge you anything for this."}},
-    {id:"born",q:"What year were you (or they) born?",select:years,help:"This tells us which State Pension rules apply."},
-    {id:"kids",q:"Roughly when were your (or their) children born?",custom:renderKids,when:()=>A.cb==="yes"||A.cb==="unsure",
+     stop:{none:"Because the State Pension hasn't started, there are no arrears to claim yet. It's still worth fixing the record now so the pension is right from the start. You can do this free at GOV.UK by searching \"Home Responsibilities Protection\". We only charge on backdated arrears, so we wouldn't charge anything for this."}},
+    {id:"spinfo",custom:renderSpInfo,when:()=>A.pension==="less"||A.pension==="unsure"||A.pension==="full"},
+    {id:"born",q:()=>you("What year were you born?","What year were they born?"),select:years,help:"This tells us which State Pension rules apply."},
+    {id:"kids",q:()=>you("Roughly when were your children born?","Roughly when were their children born?"),custom:renderKids,when:()=>A.cb==="yes"||A.cb==="unsure",
      help:"This tells us which years to look at. An approximate year is fine."},
-    {id:"ft",q:"Between 1978 and 2010, were there any tax years when you (or they) worked full time?",
-     help:"HMRC asks us to request only the years that matter. Years you worked full time already count, so we leave them out.",
-     opts:[["no","No, never full time in those years"],["some","Yes, for some of those years"],["unsure","Not sure"]]},
-    {id:"fty",q:"Which tax years did you (or they) work full time?",custom:renderFtYears,when:()=>A.ft==="some",
+    {id:"ft",custom:renderWork,when:hrpPath},
+    {id:"fty",q:()=>you("Which tax years did you work full time?","Which tax years did they work full time?"),custom:renderFtYears,when:()=>A.ft==="some",
      help:"Tap each tax year. A tax year runs from April to April, so 1985–86 means April 1985 to April 1986."},
-    {id:"status",q:"What is your (or their) marital status?",
+    {id:"status",q:()=>you("What is your marital status?","What is (or was) their marital status?"),
      opts:[["married","Married or in a civil partnership"],["widowed","Widowed"],["divorced","Divorced or dissolved"],["single","Single"]]},
-    {id:"credit",q:"Do you (or they) receive Pension Credit?",help:"A higher State Pension can change Pension Credit. We'll explain this before you decide.",
+    {id:"credit",q:()=>you("Do you receive Pension Credit?","Do (or did) they receive Pension Credit?"),help:"A higher State Pension can change Pension Credit. We'll explain this before anyone decides.",when:()=>A.for!=="died",
      opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]]},
     {id:"contact",contact:true}
   ];
-  let idx=0;
   const visible=()=>steps.filter(s=>!s.when||s.when());
   function curIndex(){return visible().indexOf(steps[idx]);}
+  const qText=s=>typeof s.q==="function"?s.q():s.q;
 
   function validNi(n){return /^[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\d{6}[A-D]$/.test(n)&&!/^(BG|GB|KN|NK|NT|TN|ZZ)/.test(n);}
+  const isMobile=p=>/^(\+44\s?7|07)\d[\d\s]{7,10}$/.test(String(p).trim());
+  const isPhone=p=>/^(\+44\s?|0)\d[\d\s]{8,12}$/.test(String(p).trim());
+  const DOMAINS={"gmial.com":"gmail.com","gmai.com":"gmail.com","gamil.com":"gmail.com","gmail.co":"gmail.com","gmail.co.uk":"gmail.com","hotmial.com":"hotmail.com","hotmail.co":"hotmail.co.uk","hotmal.co.uk":"hotmail.co.uk","yahoo.co":"yahoo.co.uk","yaho.co.uk":"yahoo.co.uk","outlok.com":"outlook.com","outloook.com":"outlook.com","btinternet.co":"btinternet.com","btinternet.co.uk":"btinternet.com","btinterent.com":"btinternet.com","aol.co":"aol.com","icloud.co":"icloud.com","live.co":"live.co.uk","sky.co":"sky.com","talktalk.com":"talktalk.net"};
+  function emailHint(input,hintEl){const v=input.value.trim().toLowerCase(),d=v.split("@")[1];if(d&&DOMAINS[d]){const fix=v.split("@")[0]+"@"+DOMAINS[d];hintEl.innerHTML=`Did you mean <b>${esc(fix)}</b>? <button type="button" class="linkbtn">Use this</button>`;hintEl.querySelector("button").onclick=()=>{input.value=fix;hintEl.textContent="";};}else hintEl.textContent="";}
   function el(tag,attrs={},html){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
-  function next(){do{idx++;}while(idx<steps.length&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
+  function next(){do{idx++;}while(idx<steps.length&&steps[idx].when&&!steps[idx].when());save();render();focusPanel();}
   function prev(){do{idx--;}while(idx>0&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
   function progress(){
     const v=visible(), total=v.length, i=idx>=steps.length?total:curIndex();
     const p=Math.round(i/total*100);
     fill.style.width=p+"%";bar.setAttribute("aria-valuenow",p);
-    timeLeft.textContent=idx>=steps.length?"Done":`About ${Math.max(5,Math.round((total-i)*60/total))} seconds left`;
+    timeLeft.textContent=idx>=steps.length?"Done":`About ${Math.max(10,Math.round((total-i)*75/total))} seconds left`;
   }
+  function backRow(){if(idx>0){const row=el("div",{class:"row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;row.append(back);panel.append(row);}}
   function render(){
     progress();panel.innerHTML="";
     if(idx>=steps.length)return renderResult();
     const s=steps[idx];
+    track(s.id);
     if(s.contact)return renderContact();
     const total=visible().length-1;
-    panel.append(el("span",{class:"eyebrow"},`Question ${curIndex()+1} of ${total}`));
-    panel.append(el("h3",{},s.q));
+    panel.append(el("span",{class:"eyebrow"},`Question ${Math.min(curIndex()+1,total)} of ${total}`));
+    if(s.q)panel.append(el("h3",{},qText(s)));
     if(s.help)panel.append(el("p",{class:"small"},s.help));
     if(s.custom)return s.custom(s);
     if(s.select){
       const f=el("div",{class:"field"});
       f.innerHTML=`<label for="yearSel">Year of birth</label><select id="yearSel"><option value="">Choose a year</option>${s.select.map(y=>`<option${A[s.id]===y?" selected":""}>${y}</option>`).join("")}</select><span class="err" id="yearErr"></span>`;
       panel.append(f);
-      const row=el("div",{class:"row"});
-      const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;
-      const go=el("button",{type:"button",class:"btn btn-primary"},"Continue");
-      go.onclick=()=>{const v=f.querySelector("select").value;if(!v){f.querySelector("#yearErr").textContent="Choose a year of birth to continue";return;}A[s.id]=v;
-        if(s.id==="born"&&+v>=1961)return renderStop("People born in 1961 or later haven't reached State Pension age yet, so there are no arrears to claim. It's still worth checking your National Insurance record now: you can apply to add missing Home Responsibilities Protection for free at GOV.UK.");
-        next();};
       f.querySelector("select").addEventListener("change",()=>{f.querySelector("#yearErr").textContent="";});
-      row.append(back,go);panel.append(row);return;
+      navRow(()=>{const v=f.querySelector("select").value;if(!v){f.querySelector("#yearErr").textContent="Choose a year of birth to continue";return;}A[s.id]=v;
+        if(s.id==="born"&&+v>=1961)return renderStop("People born in 1961 or later haven't reached State Pension age yet, so there are no arrears to claim. It's still worth checking the National Insurance record now: you can apply to add missing Home Responsibilities Protection for free at GOV.UK.","There's nothing to claim back yet");
+        next();});
+      return;
     }
-    const opts=el("div",{class:"opts",role:"group","aria-label":s.q});
+    const opts=el("div",{class:"opts",role:"group","aria-label":qText(s)});
     s.opts.forEach(([v,label,sub])=>{
       const b=el("button",{type:"button",class:"opt","aria-pressed":String(A[s.id]===v)},`<span class="dot" aria-hidden="true"></span><span>${label}${sub?`<small>${sub}</small>`:""}</span>`);
-      b.addEventListener("click",()=>{A[s.id]=v;if(s.stop&&s.stop[v])return renderStop(s.stop[v]);next();});
+      b.addEventListener("click",()=>{A[s.id]=v;if(s.stop&&s.stop[v]){save();return renderStop(s.stop[v],"There's nothing to claim back yet");}next();});
       opts.append(b);
     });
-    panel.append(opts);
-    if(idx>0){const row=el("div",{class:"row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;row.append(back);panel.append(row);}
+    panel.append(opts);backRow();
   }
   function navRow(onGo,goText){
     const row=el("div",{class:"row"});
-    const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;
+    if(idx>0){const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;row.append(back);}
     const go=el("button",{type:"button",class:"btn btn-primary"},goText||"Continue");go.onclick=onGo;
-    row.append(back,go);panel.append(row);
+    row.append(go);panel.append(row);return go;
+  }
+  /* Child Benefit paid to the partner: HRP went to them, so offer to check them instead */
+  function renderPartner(){
+    panel.append(el("h3",{},"Then your partner may be the one who's owed"));
+    panel.append(el("div",{class:"note"},"<p>Home Responsibilities Protection was given to the person the Child Benefit was paid to. So any missing years would be on your partner's record, and they would need to make the claim.</p><p>We can check your partner's record instead, and you can still be the person we talk to.</p>"));
+    const o=el("div",{class:"opts"});
+    const b1=el("button",{type:"button",class:"opt"},`<span class="dot" aria-hidden="true"></span><span>Check my partner's record instead<small>We'll ask for their details at the end</small></span>`);
+    b1.onclick=()=>{A.cb="yes";A.for="help";A.rel="Husband, wife or partner";A.forLocked=true;next();};
+    const b2=el("button",{type:"button",class:"opt"},`<span class="dot" aria-hidden="true"></span><span>My partner has died<small>Their estate may still be owed arrears</small></span>`);
+    b2.onclick=()=>{A.cb="yes";A.for="died";A.rel="Husband, wife or partner";A.forLocked=true;next();};
+    const b3=el("button",{type:"button",class:"opt"},`<span class="dot" aria-hidden="true"></span><span>Check me for other underpayments<small>For example a married or widowed pension increase</small></span>`);
+    b3.onclick=()=>{A.cb="partner";A.upliftOnly=true;next();};
+    o.append(b1,b2,b3);panel.append(o);backRow();
+  }
+  /* name and mobile early, so an unfinished check can be picked up */
+  function renderEarly(){
+    panel.append(el("h3",{},A.for==="me"?"Where should we send your result?":"Where should we send the result?"));
+    panel.append(el("p",{class:"small"},A.for==="me"?"So we can send your result and help you finish if you're interrupted.":"Your own first name and phone number. We'll ask for their details at the end."));
+    const f=el("div",{class:"form-grid"},`<div class="field"><label for="efn">${A.for==="me"?"Your first name":"Your first name"}</label><input id="efn" autocomplete="given-name" value="${esc(A.efn||"")}"><span class="err" id="efnErr"></span></div>
+      <div class="field"><label for="eph">${A.for==="me"?"Your phone number":"Your phone number"}</label><input id="eph" type="tel" autocomplete="tel" value="${esc(A.eph||"")}"><span class="hint">A mobile is best, so we can text you</span><span class="err" id="ephErr"></span></div>`);
+    panel.append(f);
+    const c=el("label",{class:"consent"},`<input type="checkbox" id="eok" ${A.ok?"checked":""}><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span>`);
+    panel.append(c);const err=el("span",{class:"err"});panel.append(err);
+    const go=navRow(async()=>{
+      const n=f.querySelector("#efn").value.trim(),p=f.querySelector("#eph").value.trim();let bad=false;
+      f.querySelector("#efnErr").textContent=n?"":(bad=true,"Enter your first name");
+      f.querySelector("#ephErr").textContent=isPhone(p)?"":(bad=true,"Enter a UK phone number, like 07700 900123");
+      err.textContent=c.querySelector("input").checked?"":(bad=true,"Tick the box so we can contact you about the check");
+      if(bad)return;
+      A.efn=n;A.eph=p;A.ok=true;
+      if(!A.fn&&A.for==="me")A.fn=n;
+      go.disabled=true;go.textContent="Saving…";
+      const j=await post("/partial",{token,answers:A,website:document.getElementById("hp")?.value||"",ref_url:document.referrer||"",utm});
+      if(j.ok&&j.token)token=j.token;
+      next();
+    });
+    const skip=el("button",{type:"button",class:"linkbtn"},"Skip for now");skip.onclick=()=>next();panel.append(skip);
+  }
+  function renderSpInfo(){
+    panel.append(el("h3",{},you("About your State Pension","About their State Pension")));
+    panel.append(el("p",{class:"small"},"Both are on the yearly letter from the Pension Service. Rough answers are fine."));
+    const bands=[["u100","Less than £100 a week"],["100","£100 to £150 a week"],["150","£150 to £200 a week"],["200","More than £200 a week"],["unsure","Not sure"]];
+    const f=el("div",{class:"form-grid"},`<div class="field"><label for="spb">How much a week, roughly?</label><select id="spb"><option value="">Choose</option>${bands.map(([k,v])=>`<option value="${k}"${A.spb===k?" selected":""}>${v}</option>`).join("")}</select></div>
+      <div class="field"><label for="spy">What year did it start?</label><select id="spy"><option value="">Choose a year</option>${spYears.map(y=>`<option${A.spy===y?" selected":""}>${y}</option>`).join("")}<option value="unsure">Not sure</option></select></div>`);
+    panel.append(f);
+    navRow(()=>{A.spb=f.querySelector("#spb").value;A.spy=f.querySelector("#spy").value;next();});
+    const skip=el("button",{type:"button",class:"linkbtn"},"I don't know, skip this");skip.onclick=()=>{delete A.spb;delete A.spy;next();};panel.append(skip);
   }
   function renderKids(s){
     const ky=[];for(let y=2010;y>=1950;y--)ky.push(String(y));
@@ -521,8 +578,6 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     const f=el("div",{class:"form-grid"},sel("kid1","Eldest child born")+sel("kid2","Youngest child born"));
     panel.append(f);
     const err=el("span",{class:"err"});panel.append(err);
-    const skip=el("button",{type:"button",class:"linkbtn"},"I'm not sure, skip this question");
-    skip.onclick=()=>{delete A.kid1;delete A.kid2;next();};panel.append(skip);
     f.querySelectorAll("select").forEach(x=>x.addEventListener("change",()=>{err.textContent="";}));
     navRow(()=>{
       const a=f.querySelector("#kid1").value,b=f.querySelector("#kid2").value;
@@ -530,10 +585,40 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       if(a&&b&&+b<+a){err.textContent="The youngest child's year can't be before the eldest's";return;}
       A.kid1=a||b;A.kid2=b||a;next();
     });
+    const skip=el("button",{type:"button",class:"linkbtn"},"I'm not sure, skip this question");
+    skip.onclick=()=>{delete A.kid1;delete A.kid2;next();};panel.append(skip);
+  }
+  /* work history in life terms; the tax years are worked out and shown back */
+  function renderWork(){
+    panel.append(el("h3",{},you("While your children were growing up, did you work full time?","While their children were growing up, did they work full time?")));
+    panel.append(el("p",{class:"small"},"HMRC asks us to check only the years that matter. Years of full-time work already count, so we leave them out. Part-time work doesn't count as full time."));
+    const o=el("div",{class:"opts"});
+    const opt=(v,l,sub)=>{const b=el("button",{type:"button",class:"opt","aria-pressed":String(A.ftMode===v)},`<span class="dot" aria-hidden="true"></span><span>${l}${sub?`<small>${sub}</small>`:""}</span>`);b.onclick=()=>pick(v);return b;};
+    o.append(opt("no",you("No, I stayed at home or worked part time","No, they stayed at home or worked part time")),
+      opt("back",you("I went back to full-time work at some point","They went back to full-time work at some point"),"We'll ask which year"),
+      opt("throughout",you("I worked full time the whole time","They worked full time the whole time")),
+      opt("unsure","Not sure"));
+    panel.append(o);
+    const sub=el("div",{});panel.append(sub);
+    function pick(v){
+      A.ftMode=v;o.querySelectorAll(".opt").forEach(b=>b.setAttribute("aria-pressed","false"));
+      if(v==="no"){A.ft="no";delete A.fty;return next();}
+      if(v==="unsure"){A.ft="unsure";delete A.fty;return next();}
+      if(v==="throughout"){A.ft="throughout";delete A.fty;return next();}
+      sub.innerHTML=`<div class="field" style="margin-top:12px"><label for="ftfrom">${you("Which year did you go back to full-time work?","Which year did they go back to full-time work?")}</label><select id="ftfrom"><option value="">Choose a year</option>${yrsBack.map(y=>`<option${A.ftFrom===y?" selected":""}>${y}</option>`).join("")}</select><span class="err" id="ftErr"></span></div><p class="small" id="ftConfirm"></p>`;
+      const s=sub.querySelector("#ftfrom"),c=sub.querySelector("#ftConfirm");
+      const show=()=>{const y=+s.value;if(!y){c.textContent="";return;}c.innerHTML=`So we'll treat the tax years from <b>${y}–${String(y+1).slice(2)}</b> onwards as full time and leave them out. <button type="button" class="linkbtn" id="pickExact">Pick exact years instead</button>`;c.querySelector("#pickExact").onclick=()=>{A.ft="some";A.fty=[];for(let k=y;k<=2009;k++)A.fty.push(k);next();};};
+      s.addEventListener("change",()=>{sub.querySelector("#ftErr").textContent="";show();});show();
+      const go=el("button",{type:"button",class:"btn btn-primary",style:"margin-top:10px"},"Continue");
+      go.onclick=()=>{const y=+s.value;if(!y){sub.querySelector("#ftErr").textContent="Choose a year, or go back and choose \"Not sure\"";return;}A.ftFrom=String(y);A.ft="some";A.fty=[];for(let k=Math.max(1978,y);k<=2009;k++)A.fty.push(k);A.ftSkipPicker=true;idx++;next();};
+      sub.append(go);
+    }
+    backRow();
   }
   function renderFtYears(s){
+    if(A.ftSkipPicker){A.ftSkipPicker=false;}
     const chosen=new Set(A.fty||[]);
-    const g=el("div",{class:"ygrid",role:"group","aria-label":s.q});
+    const g=el("div",{class:"ygrid",role:"group","aria-label":qText(s)});
     for(let y=1978;y<=2009;y++){
       const b=el("button",{type:"button",class:"opt","aria-pressed":String(chosen.has(y))},`${y}–${String(y+1).slice(2)}`);
       b.onclick=()=>{chosen.has(y)?chosen.delete(y):chosen.add(y);b.setAttribute("aria-pressed",String(chosen.has(y)));err.textContent="";};
@@ -541,95 +626,197 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     }
     panel.append(g);
     const err=el("span",{class:"err"});panel.append(err);
+    navRow(()=>{if(!chosen.size){err.textContent="Tap at least one tax year, or choose \"I'm not sure which years\"";return;}A.fty=[...chosen].sort((a,b)=>a-b);next();});
     const unsure=el("button",{type:"button",class:"linkbtn"},"I'm not sure which years");
     unsure.onclick=()=>{A.ft="unsure";delete A.fty;next();};panel.append(unsure);
-    navRow(()=>{if(!chosen.size){err.textContent="Tap at least one tax year, or choose \"I'm not sure which years\"";return;}A.fty=[...chosen].sort((a,b)=>a-b);next();});
   }
-  function renderStop(msg){
-    panel.innerHTML="";
+  function renderStop(msg,title){
+    panel.innerHTML="";track("stop:"+steps[idx].id);
     panel.append(el("span",{class:"eyebrow"},"Your answer"));
-    panel.append(el("h3",{},(A.pension==="none"&&steps[idx].id==="pension")||(steps[idx].id==="born"&&+A.born>=1961)?"There's nothing to claim back yet":A.cb==="partner"&&steps[idx].id==="cb"?"Your partner would need to make this claim":"It doesn't look as though we can help with this"));
+    panel.append(el("h3",{},title||"It doesn't look as though we can help with this"));
     panel.append(el("div",{class:"note"},`<p>${msg}</p>`));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
-    const again=el("button",{type:"button",class:"btn btn-ghost"},"Start again");again.onclick=()=>{for(const k in A)delete A[k];idx=0;render();focusPanel();};
+    const again=el("button",{type:"button",class:"btn btn-ghost"},"Start again");again.onclick=()=>{A={};token=null;clearSave();idx=0;render();focusPanel();};
     row.append(back,again);panel.append(row);
   }
+  /* final step: the claimant's details, plus the helper's when someone else is filling it in */
   function renderContact(){
+    const me=A.for==="me", died=A.for==="died";
     panel.append(el("span",{class:"eyebrow"},"Last step"));
-    panel.append(el("h3",{},"Your details"));
-    panel.append(el("p",{class:"small"},A.for==="me"?"So we can tell you the result and call you to talk it through.":"Enter your own details. We'll ask about the person you're helping when we call."));
+    panel.append(el("h3",{},me?"Your details":died?"Their details, and yours":"Their details, and yours"));
+    panel.append(el("p",{class:"small"},me?"So we can tell you the result and call you to talk it through.":died?"The details of the person who has died, then your own details as the person dealing with their estate.":"The details of the person the check is for, then your own details so we can talk to you too."));
     const f=el("form",{novalidate:""});
     f.style.cssText="display:flex;flex-direction:column;gap:14px";
-    f.innerHTML=`<div class="form-grid">
-      <div class="field"><label for="ti">Title</label><select id="ti"><option value="">Choose</option><option>Mrs</option><option>Ms</option><option>Miss</option><option>Mr</option><option>Mx</option><option>Dr</option></select><span class="err" id="tiErr"></span></div>
-      <div class="field"><label for="fn">First name</label><input id="fn" autocomplete="given-name"><span class="err" id="fnErr"></span></div>
-      <div class="field"><label for="ln">Last name</label><input id="ln" autocomplete="family-name"><span class="err" id="lnErr"></span></div>
+    const titles=`<option value="">Choose</option><option>Mrs</option><option>Ms</option><option>Miss</option><option>Mr</option><option>Mx</option><option>Dr</option>`;
+    const claimant=`<div class="form-grid">
+      <div class="field"><label for="ti">Title</label><select id="ti">${titles}</select><span class="err" id="tiErr"></span></div>
+      <div class="field"><label for="fn">${me?"First name":"Their first name"}</label><input id="fn" autocomplete="${me?"given-name":"off"}"><span class="err" id="fnErr"></span></div>
+      <div class="field"><label for="ln">${me?"Last name":"Their last name"}</label><input id="ln" autocomplete="${me?"family-name":"off"}"><span class="err" id="lnErr"></span></div>
       <div class="field"><label for="mn">Maiden or previous surname <span class="small">(optional)</span></label><input id="mn"><span class="hint">Helps HMRC find older records</span></div>
-      <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><span class="err" id="emErr"></span></div>
-      <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint">Mobile or landline</span><span class="err" id="phErr"></span></div>
+      ${me?`<div class="field"><label for="em">Email <span class="small">(optional)</span></label><input id="em" type="email" autocomplete="email"><span class="hint" id="emHint"></span><span class="err" id="emErr"></span></div>
+      <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint" id="phHint">Mobile or landline</span><span class="err" id="phErr"></span></div>
+      <div class="field" id="mobWrap" hidden><label for="mob">Mobile for texts or WhatsApp <span class="small">(optional)</span></label><input id="mob" type="tel"><span class="err" id="mobErr"></span></div>`
+      :died?`<div class="field"><label for="dd">Roughly when did they die?</label><input id="dd" placeholder="e.g. March 2023"><span class="err" id="ddErr"></span></div>`
+      :`<div class="field"><label for="cph">Their phone number <span class="small">(optional)</span></label><input id="cph" type="tel"><span class="hint">Leave blank if we should only talk to you</span><span class="err" id="cphErr"></span></div>`}
       <div class="field"><label for="ni">National Insurance number <span class="small">(optional)</span></label><input id="ni" autocomplete="off" autocapitalize="characters" spellcheck="false"><span class="hint">On payslips, P60s and pension letters, like QQ 12 34 56 C</span><span class="err" id="niErr"></span></div>
+    </div>`;
+    const helper=me?"":`<h4 style="margin:6px 0 0">Your details</h4><div class="form-grid">
+      <div class="field"><label for="hfn">Your first name</label><input id="hfn" autocomplete="given-name"><span class="err" id="hfnErr"></span></div>
+      <div class="field"><label for="hln">Your last name</label><input id="hln" autocomplete="family-name"><span class="err" id="hlnErr"></span></div>
+      <div class="field"><label for="rel">You are their</label><select id="rel"><option value="">Choose</option>${(died?["Son or daughter","Husband, wife or partner","Executor or personal representative","Other relative","Other"]:["Son or daughter","Husband, wife or partner","Other relative","Friend or carer","Other"]).map(r=>`<option>${r}</option>`).join("")}</select><span class="err" id="relErr"></span></div>
+      <div class="field"><label for="ph">Your phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint" id="phHint">Mobile or landline</span><span class="err" id="phErr"></span></div>
+      <div class="field" id="mobWrap" hidden><label for="mob">Your mobile for texts or WhatsApp <span class="small">(optional)</span></label><input id="mob" type="tel"><span class="err" id="mobErr"></span></div>
+      <div class="field"><label for="em">Your email <span class="small">(optional)</span></label><input id="em" type="email" autocomplete="email"><span class="hint" id="emHint"></span><span class="err" id="emErr"></span></div>
+    </div>${died?"":`<label class="consent"><input type="checkbox" id="hok"><span>They know about this check and are happy for Missing Years to talk to me about it. I understand they will need to sign any documents themselves.</span></label><span class="err" id="hokErr"></span>`}`;
+    f.innerHTML=claimant+helper+`
       <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Any time, 9am to 5pm</option></select><span class="err" id="btErr"></span></div>
-    </div>
-    <input type="text" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
-    <label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
-    <span class="err" id="okErr"></span>
-    <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
+      <input type="text" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
+      ${A.ok?"":`<label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label><span class="err" id="okErr"></span>`}
+      <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See the result</button></div>`;
     panel.append(f);
-    ["ti","fn","ln","mn","em","ph","ni","bt"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
-    f.querySelector("#ok").checked=!!A.ok;
-    f.querySelector("#ok").addEventListener("change",()=>{f.querySelector("#okErr").textContent="";});
-    f.querySelector("#back").onclick=prev;
+    const q=id=>f.querySelector("#"+id);
+    if(me){if(A.efn&&!A.fn)A.fn=A.efn;if(A.eph&&!A.ph)A.ph=A.eph;}else{if(A.efn&&!A.hfn)A.hfn=A.efn;if(A.eph&&!A.ph)A.ph=A.eph;}
+    ["ti","fn","ln","mn","em","ph","mob","ni","bt","dd","cph","hfn","hln","rel"].forEach(k=>{const i=q(k);if(!i)return;if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=q(k+"Err");if(e)e.textContent="";});});
+    const ph=q("ph"),phHint=q("phHint"),mobWrap=q("mobWrap");
+    const phCheck=()=>{const v=ph.value.trim();if(isPhone(v)&&!isMobile(v)){phHint.textContent="That looks like a landline. We can't text a landline, so add a mobile below if there is one.";mobWrap.hidden=false;}else{phHint.textContent="Mobile or landline";mobWrap.hidden=!q("mob").value;}};
+    ph.addEventListener("blur",phCheck);phCheck();
+    const em=q("em");if(em)em.addEventListener("blur",()=>emailHint(em,q("emHint")));
+    if(q("hok")){q("hok").checked=!!A.hok;q("hok").addEventListener("change",()=>{q("hokErr").textContent="";});}
+    if(q("ok"))q("ok").addEventListener("change",()=>{q("okErr").textContent="";});
+    q("back").onclick=prev;
     f.addEventListener("submit",e=>{
       e.preventDefault();
-      const v=k=>f.querySelector("#"+k).value.trim();let bad=false;
-      const set=(k,m)=>{f.querySelector("#"+k+"Err").textContent=m;if(m)bad=true;};
+      const v=k=>q(k)?q(k).value.trim():"";let bad=false;
+      const set=(k,m)=>{const x=q(k+"Err");if(x)x.textContent=m;if(m)bad=true;};
       set("ti",v("ti")?"":"Choose a title");
-      set("fn",v("fn")?"":"Enter your first name");
-      set("ln",v("ln")?"":"Enter your last name");
-      set("em",/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address, like name@example.com");
-      set("ph",/^(\+44\s?|0)\d[\d\s]{8,12}$/.test(v("ph"))?"":"Enter a UK phone number, like 07700 900123 or 0161 496 0000");
+      set("fn",v("fn")?"":me?"Enter your first name":"Enter their first name");
+      set("ln",v("ln")?"":me?"Enter your last name":"Enter their last name");
+      if(!me){set("hfn",v("hfn")?"":"Enter your first name");set("hln",v("hln")?"":"Enter your last name");set("rel",v("rel")?"":"Choose how you're related");}
+      set("em",!v("em")||/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v("em"))?"":"Check the email address, like name@example.com, or leave it blank");
+      set("ph",isPhone(v("ph"))?"":"Enter a UK phone number, like 07700 900123 or 0161 496 0000");
+      set("mob",!v("mob")||isMobile(v("mob"))?"":"That isn't a UK mobile number. Leave it blank if there isn't one");
+      if(q("cph"))set("cph",!v("cph")||isPhone(v("cph"))?"":"Check their phone number, or leave it blank");
       const ni=v("ni").replace(/\s/g,"").toUpperCase();
-      set("ni",!ni||validNi(ni)?"":"Check your National Insurance number. It's 2 letters, 6 numbers and 1 letter, like QQ 12 34 56 C. Or leave it blank");
+      set("ni",!ni||validNi(ni)?"":"Check the National Insurance number. It's 2 letters, 6 numbers and 1 letter, like QQ 12 34 56 C. Or leave it blank");
       set("bt",v("bt")?"":"Choose a time for us to call");
-      set("ok",f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your check");
-      if(bad)return;
-      ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>A[k]=v(k));A.ni=ni;A.ok=true;
+      if(q("hok"))set("hok",q("hok").checked?"":"Please confirm they know about this check");
+      if(q("ok"))set("ok",q("ok").checked?"":"Tick the box so we can contact you about the check");
+      if(bad){const first=f.querySelector(".err:not(:empty)");if(first)first.scrollIntoView({block:"center"});return;}
+      ["ti","fn","ln","mn","em","ph","mob","bt","dd","cph","hfn","hln","rel"].forEach(k=>{if(q(k))A[k]=v(k);});
+      A.ni=ni;A.ok=true;if(q("hok"))A.hok=true;
       const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Sending…";
       sendLead().then(()=>{idx=steps.length;render();focusPanel();});
     });
   }
   function renderResult(){
+    track("result");
+    const hrp=hrpPath()&&A.cb!=="partner";
     const checks=[];
-    if(A.cb==="yes"||A.cb==="unsure")checks.push("Missing Home Responsibilities Protection for the years you raised children");
-    if(A.cb==="no"&&A.care==="yes")checks.push("Missing HRP for the years you were a carer or foster carer");
-    if(A.status==="married")checks.push("The married person uplift based on your husband's or wife's record");
-    if(A.status==="widowed")checks.push("The widow or widower uplift");
+    if(A.cb==="yes"||A.cb==="unsure")checks.push("Missing Home Responsibilities Protection for the years the children were growing up");
+    if(A.cb==="no"&&A.care==="yes")checks.push("Missing HRP for the years of caring or fostering");
+    if(A.status==="married")checks.push("The married person increase based on a husband's, wife's or civil partner's record");
+    if(A.status==="widowed")checks.push("The widow or widower increase, or inherited State Pension");
     if(A.status==="divorced")checks.push("Entitlement based on a former partner's record");
     if(+A.born<=1946)checks.push("The over-80 State Pension");
     checks.push("Any other gaps or errors in the National Insurance record");
-    const who=A.for==="died"?"their estate":A.for==="help"?"they":"you";
-    panel.append(el("span",{class:"eyebrow"},"Your result"));
-    panel.append(el("h3",{},`${A.fn}, it looks like ${who==="you"?"you":who} may be owed money`));
-    panel.append(el("p",{},"Based on your answers, these are the checks we would carry out:"));
+    const name=A.for==="me"?A.fn:(A.hfn||A.efn||"");
+    const weak=!hrp&&!["married","widowed","divorced"].includes(A.status)&&!(+A.born<=1946);
+    panel.append(el("span",{class:"eyebrow"},"The result"));
+    panel.append(el("h3",{},weak?`${esc(name)}, we'd like to take a closer look`:A.pension==="full"&&!["married","widowed"].includes(A.status)?`${esc(name)}, there may still be something to check`:`${esc(name)}, it looks like ${A.for==="died"?"their estate":A.for==="help"?"they":"you"} may be owed money`));
+    if(A.pension==="full")panel.append(el("p",{class:"small"},"Missing years are less likely to matter when the full State Pension is already paid, but increases based on a partner's record or age can still apply."));
+    panel.append(el("p",{},"Based on the answers, these are the checks we would carry out:"));
     panel.append(el("ul",{style:"margin:0;padding-left:22px;display:grid;gap:6px"},checks.map(c=>`<li>${c}</li>`).join("")));
     const notes=[];
-    notes.push(`<strong>What happens next:</strong> one of our team will call you within one working day, ${A.bt.startsWith("Any")?"between 9am and 5pm":"in the "+A.bt.split(",")[0].toLowerCase()}, to go through your record. There's nothing to pay and no obligation.`);
-    if(A.credit!=="no")notes.push("Because you may receive Pension Credit, we'll explain how a higher State Pension could affect it before you decide.");
-    if(A.pension==="none")notes.push("As the State Pension hasn't started yet, correcting the record now could mean a higher pension from the start.");
+    notes.push(`<strong>What happens next:</strong> one of our team will call ${A.for==="me"?"you":"you"} within one working day, ${String(A.bt||"").startsWith("Any")?"between 9am and 5pm":"in the "+String(A.bt||"morning").split(",")[0].toLowerCase()}. There's nothing to pay and no obligation.`);
+    if(A.credit&&A.credit!=="no")notes.push("Because Pension Credit may be paid, we'll explain how a higher State Pension could affect it before anyone decides.");
     panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
-    panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Receiving Child Benefit doesn't automatically mean you're owed anything: we only make a claim if your HMRC and DWP records show one is supported, and only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
+    panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Receiving Child Benefit doesn't automatically mean anything is owed: we only make a claim if the HMRC and DWP records show one is supported, and only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
     const row=el("div",{class:"row"});
-    const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
+    const back=el("button",{type:"button",class:"btn btn-ghost"},"Change the answers");back.onclick=()=>{idx=0;render();focusPanel();};
     if(sent&&sent.ok){
-      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. Keep it safe: you can use it to <a href="https://missing-years-crm.onrender.com/status">check your progress online</a> at any time. You'll only be asked to sign anything once you're happy to go ahead, and you can cancel free within 14 days of signing.</p>`));
+      panel.append(el("div",{class:"note good"},`<p><strong>Thank you, your details have been sent.</strong> The reference is <b>${sent.ref}</b>. You can use it to <a href="https://missing-years-crm.onrender.com/status">check progress online</a>. Nothing is signed until you're happy to go ahead, and you can cancel free within 14 days of signing.</p>`));
+      if(A.for!=="died"&&sent.dtoken){
+        const box=el("div",{class:"hero-q"},`<p>Want to speed things up? Finish the details now (about 5 minutes) and we can send the paperwork straight after our call.</p>`);
+        const go=el("button",{type:"button",class:"btn btn-primary"},"Finish the details now");go.onclick=()=>{renderDetails();focusPanel();};
+        box.append(go);panel.append(box);
+      }
     }else{
-      panel.append(el("div",{class:"note"},`<p><strong>We couldn't send your details just now.</strong> ${sent&&sent.error?sent.error:"Please call us free on 0800 999 999, weekdays 9am to 5pm, and we'll take them over the phone."}</p>`));
+      panel.append(el("div",{class:"note"},`<p><strong>We couldn't send the details just now.</strong> ${sent&&sent.error?esc(sent.error):"Please call us free on "+PHONE+", weekdays 9am to 5pm, and we'll take them over the phone."}</p>`));
       const retry=el("button",{type:"button",class:"btn btn-primary"},"Try sending again");
       retry.onclick=async()=>{retry.disabled=true;retry.textContent="Sending…";await sendLead();panel.innerHTML="";renderResult();focusPanel();};
       row.append(retry);
     }
     row.prepend(back);panel.append(row);
+  }
+  /* optional second step: the details HMRC and DWP need, checked as they're typed */
+  function renderDetails(){
+    track("details");
+    panel.innerHTML="";progress();
+    const me=A.for==="me", who=me?"your":"their";
+    panel.append(el("span",{class:"eyebrow"},"Optional: about 5 minutes"));
+    panel.append(el("h3",{},me?"Finish your details":"Finish their details"));
+    panel.append(el("p",{class:"small"},"These go on the forms to HMRC and DWP, so please copy them exactly from a pension letter or payslip if you can. Anything you're not sure of, leave blank and we'll go through it on the phone."));
+    const days=[...Array(31)].map((_,i)=>i+1),months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const kidRows=Math.max(1,A.kid1&&A.kid2&&A.kid1!==A.kid2?2:1);
+    const f=el("form",{novalidate:""});f.style.cssText="display:flex;flex-direction:column;gap:14px";
+    const kidRow=i=>`<div class="form-grid kidrow"><div class="field"><label>Child ${i+1}: name</label><input name="kn${i}"></div><div class="field"><label>Date of birth</label><input name="kd${i}" type="date" min="1955-01-01" max="2010-12-31"></div></div>`;
+    f.innerHTML=`<div class="field"><label>${me?"Your":"Their"} date of birth</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="dd1" aria-label="Day"><option value="">Day</option>${days.map(d=>`<option>${d}</option>`).join("")}</select><select id="dm1" aria-label="Month"><option value="">Month</option>${months.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("")}</select><select id="dy1" aria-label="Year"><option value="">Year</option>${years.map(y=>`<option${A.born===y?" selected":""}>${y}</option>`).join("")}</select></div><span class="err" id="dobErr"></span></div>
+      <div class="form-grid">
+        <div class="field"><label for="hn">Name exactly as on ${who} pension letter</label><input id="hn" value="${esc([A.ti,A.fn,A.ln].filter(Boolean).join(" "))}"><span class="hint">Include any middle names</span></div>
+        <div class="field"><label for="ni2">National Insurance number</label><input id="ni2" autocapitalize="characters" value="${esc(A.ni||"")}"><span class="err" id="ni2Err"></span></div>
+        <div class="field"><label for="pc">Postcode</label><input id="pc" autocapitalize="characters" autocomplete="postal-code"><span class="hint" id="pcHint"></span><span class="err" id="pcErr"></span></div>
+        <div class="field"><label for="ad">House number and street</label><input id="ad" autocomplete="address-line1"><span class="err" id="adErr"></span></div>
+        <div class="field"><label for="town">Town</label><input id="town" autocomplete="address-level2"></div>
+        <div class="field"><label for="yrs">Lived there for</label><select id="yrs"><option value="">Choose</option><option value="lt4">Less than 4 years</option><option value="4plus">4 years or more</option></select></div>
+        <div class="field" id="prevWrap" hidden><label for="pa">Previous address</label><input id="pa"></div>
+        <div class="field"><label for="pn">Previous surnames <span class="small">(optional)</span></label><input id="pn" value="${esc(A.mn||"")}" placeholder="e.g. Price"></div>
+      </div>
+      ${hrpPath()?`<h4 style="margin:6px 0 0">Children ${who==="your"?"you":"they"} received Child Benefit for</h4><div id="kids">${[...Array(kidRows)].map((_,i)=>kidRow(i)).join("")}</div><button type="button" class="linkbtn" id="addKid">Add another child</button>`:""}
+      ${["married","widowed","divorced"].includes(A.status)?`<h4 style="margin:6px 0 0">${A.status==="widowed"?"Late husband, wife or partner":A.status==="divorced"?"Former husband, wife or partner":"Husband, wife or partner"} <span class="small">(if known)</span></h4><div class="form-grid">
+        <div class="field"><label for="pfn">Full name</label><input id="pfn"></div>
+        <div class="field"><label for="pdob">Date of birth</label><input id="pdob" type="date"></div>
+        <div class="field"><label for="md">Date of marriage</label><input id="md" type="date"></div>
+        ${A.status==="widowed"?`<div class="field"><label for="pdd">Date they died</label><input id="pdd" type="date"></div>`:""}
+        <div class="field"><label for="punk">If you don't know these, why? <span class="small">(optional)</span></label><input id="punk" placeholder="e.g. divorced in 1986, no contact"></div></div>`:""}
+      <p class="small">Don't guess anything: a wrong detail can get forms rejected. Blank is better than a guess.</p>
+      <span class="err" id="detErr"></span>
+      <div class="row"><button type="button" class="btn btn-ghost" id="later">Do this later on the phone</button><button type="submit" class="btn btn-primary">Send ${who} details</button></div>`;
+    panel.append(f);
+    const q=id=>f.querySelector("#"+id);
+    q("later").onclick=()=>{panel.innerHTML="";renderResult();focusPanel();};
+    q("yrs").onchange=()=>{q("prevWrap").hidden=q("yrs").value!=="lt4";};
+    if(q("addKid")){let n=kidRows;q("addKid").onclick=()=>{if(n>=7)return;q("kids").insertAdjacentHTML("beforeend",kidRow(n++));if(n>=7)q("addKid").hidden=true;};}
+    q("pc").addEventListener("blur",()=>{const v=q("pc").value.trim();if(!v)return;fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(v)).then(r=>r.json()).then(j=>{if(j.status===200){q("pc").value=j.result.postcode;q("pcErr").textContent="";q("pcHint").textContent="Found: "+[j.result.admin_ward,j.result.admin_district].filter(Boolean).join(", ");if(!q("town").value)q("town").value=j.result.admin_district||"";}else{q("pcHint").textContent="";q("pcErr").textContent="We couldn't find that postcode. Please check it.";}}).catch(()=>{});});
+    f.addEventListener("submit",async e=>{
+      e.preventDefault();let bad=false;const set=(k,m)=>{const x=q(k);if(x)x.textContent=m;if(m)bad=true;};
+      const d=q("dd1").value,m=q("dm1").value,y=q("dy1").value;let dob="";
+      if(d||m||y){if(!(d&&m&&y))set("dobErr","Choose the day, month and year, or leave all three blank");else{dob=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;const t=new Date(dob+"T12:00:00Z");if(t.getUTCDate()!=+d)set("dobErr","That date doesn't exist. Please check it.");else if(A.born&&y!==A.born)set("dobErr",`Earlier you said ${A.born}. Please check which is right.`);else set("dobErr","");}}
+      const ni=q("ni2").value.replace(/\s/g,"").toUpperCase();set("ni2Err",!ni||validNi(ni)?"":"That isn't a valid National Insurance number. Check it or leave it blank");
+      if(q("pc").value.trim()&&!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(q("pc").value.trim()))set("pcErr","Check the postcode");
+      if(bad)return;
+      const kids=[...f.querySelectorAll(".kidrow")].map((r,i)=>({name:(f.querySelector(`[name=kn${i}]`)||{}).value||"",dob:(f.querySelector(`[name=kd${i}]`)||{}).value||""})).filter(k=>k.name||k.dob);
+      const v=id=>q(id)?q(id).value.trim():"";
+      const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Sending…";
+      const j=await post(`/leads/${sent.ref}/details`,{dtoken:sent.dtoken,dob,hmrc_name:v("hn"),ni,postcode:v("pc"),address:[v("ad"),v("town")].filter(Boolean).join(", "),years_at_address:v("yrs"),prev_address:v("pa"),prev_names:v("pn"),children:kids,partner_name:v("pfn"),partner_dob:v("pdob"),marriage_date:v("md"),partner_death_date:v("pdd"),partner_unknown:v("punk")});
+      track(j.ok?"details_done":"details_error");
+      panel.innerHTML="";
+      panel.append(el("span",{class:"eyebrow"},"Thank you"));
+      panel.append(el("h3",{},j.ok?"We've got everything we need for now":"We couldn't send those details"));
+      panel.append(el("div",{class:"note "+(j.ok?"good":"")},j.ok?`<p>When we call, we'll just check a few things with you. If everything's right, we can send the paperwork the same day. Your reference is <b>${sent.ref}</b>.</p>`:`<p>Please don't worry: we'll go through them on the phone instead, or call us free on ${PHONE}.</p>`));
+      focusPanel();
+    });
+  }
+  /* pick up where you left off */
+  function offerResume(saved){
+    panel.innerHTML="";
+    panel.append(el("span",{class:"eyebrow"},"Welcome back"));
+    panel.append(el("h3",{},"Carry on with your check?"));
+    panel.append(el("p",{},"You started a check earlier. You can carry on where you left off."));
+    const row=el("div",{class:"row"});
+    const go=el("button",{type:"button",class:"btn btn-primary"},"Carry on");go.onclick=()=>{A=saved.A||{};token=saved.token||null;idx=Math.min(saved.idx||0,steps.length-1);render();focusPanel();};
+    const fresh=el("button",{type:"button",class:"btn btn-ghost"},"Start again");fresh.onclick=()=>{clearSave();A={};token=null;idx=0;render();focusPanel();};
+    row.append(fresh,go);panel.append(row);
   }
   document.querySelectorAll("[data-cb]").forEach(b=>b.addEventListener("click",()=>{
     A.cb=b.dataset.cb; idx=0; next();
@@ -640,7 +827,15 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   try{if(localStorage.getItem("bigText")==="1"){document.documentElement.classList.add("big");ts.setAttribute("aria-pressed","true");}}catch(e){}
   ts.addEventListener("click",()=>{const on=document.documentElement.classList.toggle("big");ts.setAttribute("aria-pressed",String(on));ts.setAttribute("aria-label",on?"Make text smaller":"Make text larger");try{localStorage.setItem("bigText",on?"1":"0");}catch(e){}});
   function focusPanel(){const h=panel.querySelector("h3");if(h){h.setAttribute("tabindex","-1");h.focus({preventScroll:true});}}
-  render();
+  (async()=>{
+    const rt=new URLSearchParams(location.search).get("resume");
+    if(rt&&/^[A-Za-z0-9_-]{20,60}$/.test(rt)){
+      try{const r=await fetch(API+"/partial/"+rt);const j=await r.json();if(j.ok&&j.answers){offerResume({A:j.answers,token:rt,idx:j.answers._idx||4});document.getElementById("check").scrollIntoView();return;}}catch(e){}
+    }
+    let saved=null;try{saved=JSON.parse(localStorage.getItem(SAVE_KEY)||"null");}catch(e){}
+    if(saved&&saved.idx>0&&Date.now()-saved.at<14*86400e3)return offerResume(saved);
+    render();
+  })();
 })();
 </script>
 </body>
