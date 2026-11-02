@@ -14,8 +14,9 @@ const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "";
 const PHONE = process.env.PHONE || "0800 999 999";
 const FEE_RATE = 0.30, VAT_RATE = 0.20, PAY_DAYS = 14;
 
-const pool = process.env.DATABASE_URL
-  ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.DATABASE_URL.includes("render.com") ? { rejectUnauthorized: false } : false })
+const DB_URL = process.env.DATABASE_URL || process.env.database_url || "";
+const pool = DB_URL
+  ? new Pool({ connectionString: DB_URL, ssl: DB_URL.includes("render.com") ? { rejectUnauthorized: false } : false })
   : null;
 
 /* ---------- stages ---------- */
