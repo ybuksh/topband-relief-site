@@ -15,7 +15,12 @@ const FIRM_FIELDS = [
   ["address", "Registered office address"],
   ["agent_code", "HMRC agent code"],
   ["email", "Contact email"],
-  ["phone", "Contact phone"]
+  ["phone", "Contact phone"],
+  ["vat_no", "VAT registration number (needed on invoices)"],
+  ["bank_name", "Bank name (for fee payments)"],
+  ["account_name", "Bank account name"],
+  ["sort_code", "Sort code"],
+  ["account_no", "Account number"]
 ];
 
 const DOC_TYPES = {
