@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>TopBand Relief</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: payslip-ledger feel — a tax-band ruler as the hero thesis, then checker, fees, FAQ in a single 1080px column */
+:root{
+  --bg:#F3F6F4; --paper:#FFFFFF; --ink:#13201B; --muted:#55645E; --line:#D5DED9;
+  --accent:#0E6A50; --accent-ink:#FFFFFF; --tint:#DDEFE6; --band:#E9EFEC; --warn:#9A5B12; --warn-tint:#FBEEDB; --danger:#A3302A;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1513; --paper:#16201D; --ink:#E6EEEA; --muted:#9AABA4; --line:#2A3833;
+  --accent:#4CC69C; --accent-ink:#0B1A15; --tint:#173A2F; --band:#1C2925; --warn:#E6A55B; --warn-tint:#3A2A16; --danger:#F08A82; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1513; --paper:#16201D; --ink:#E6EEEA; --muted:#9AABA4; --line:#2A3833;
+  --accent:#4CC69C; --accent-ink:#0B1A15; --tint:#173A2F; --band:#1C2925; --warn:#E6A55B; --warn-tint:#3A2A16; --danger:#F08A82; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+img{max-width:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:1080px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);line-height:1.1;text-wrap:balance;margin:0}
+h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:700;letter-spacing:-.02em}
+h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:700;letter-spacing:-.01em}
+h3{font-size:1.15rem;font-weight:500}
+p{margin:0;max-width:65ch}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+a{color:var(--accent)}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.15rem;text-decoration:none;color:var(--ink)}
+.logo-mark{width:28px;height:28px;border-radius:6px;background:var(--accent);position:relative;overflow:hidden}
+.logo-mark::before,.logo-mark::after{content:"";position:absolute;left:5px;right:5px;height:3px;background:var(--accent-ink);border-radius:2px}
+.logo-mark::before{top:8px}.logo-mark::after{top:16px;right:12px}
+.links{display:flex;gap:22px;align-items:center}
+.links a.plain{color:var(--muted);text-decoration:none;font-weight:500;font-size:.95rem}
+.links a.plain:hover{color:var(--ink)}
+@media (max-width:720px){.links a.plain{display:none}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:10px;padding:12px 20px;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .15s ease,background .15s}
+.btn-primary{background:var(--accent);color:var(--accent-ink)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn-ghost:hover{border-color:var(--muted)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;padding-block:56px 40px;align-items:start}
+@media (max-width:880px){.hero{grid-template-columns:1fr;gap:28px;padding-block:36px 24px}}
+.hero-copy{display:flex;flex-direction:column;gap:20px;min-width:0}
+.hero-copy .lede{font-size:1.15rem;color:var(--muted)}
+.hero-copy h1 em{font-style:normal;color:var(--accent)}
+.ticks{display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;padding:0;margin:0;color:var(--muted);font-size:.95rem}
+.ticks li::before{content:"✓";color:var(--accent);font-weight:700;margin-right:6px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:12px}
+.small{font-size:.85rem;color:var(--muted)}
+
+.estimator{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:18px;min-width:0}
+.est-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:600;font-size:.92rem;display:flex;justify-content:space-between;gap:8px}
+.field label output{font-family:var(--mono);font-weight:500;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.ruler{position:relative;height:56px;margin-top:4px}
+.ruler-track{position:absolute;left:0;right:0;top:18px;height:14px;border-radius:7px;background:var(--band);overflow:hidden;display:flex}
+.seg{height:100%}
+.seg.basic{background:var(--band)}
+.seg.higher{background:color-mix(in srgb,var(--accent) 28%,transparent)}
+.seg.add{background:color-mix(in srgb,var(--warn) 30%,transparent)}
+.ruler-mark{position:absolute;top:10px;width:1px;height:30px;background:var(--muted)}
+.ruler-lab{position:absolute;top:40px;transform:translateX(-50%);font-family:var(--mono);font-size:.7rem;color:var(--muted);white-space:nowrap}
+.ruler-you{position:absolute;top:0;transform:translateX(-50%);font-family:var(--mono);font-size:.7rem;color:var(--ink);white-space:nowrap;font-weight:500}
+.ruler-pin{position:absolute;top:14px;width:3px;height:22px;background:var(--ink);border-radius:2px;transform:translateX(-50%)}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px dashed var(--line);padding-top:16px}
+.result-grid div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.result-grid .k{font-size:.78rem;color:var(--muted)}
+.result-grid .v{font-family:var(--mono);font-size:1.25rem;font-weight:500}
+.result-grid .v.big{color:var(--accent)}
+@media (max-width:420px){.result-grid{grid-template-columns:1fr 1fr}.result-grid div:first-child{grid-column:1/-1}}
+
+/* sections */
+section.block{padding-block:56px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:28px}
+.section-head{display:flex;flex-direction:column;gap:10px}
+.why{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+@media (max-width:820px){.why{grid-template-columns:1fr}}
+.why article{display:flex;flex-direction:column;gap:8px}
+.why .stat{font-family:var(--mono);font-size:1.9rem;font-weight:500;color:var(--accent)}
+.steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;counter-reset:s}
+@media (max-width:880px){.steps{grid-template-columns:1fr 1fr}}
+@media (max-width:480px){.steps{grid-template-columns:1fr}}
+.steps li{counter-increment:s;display:flex;flex-direction:column;gap:6px;padding-top:14px;border-top:3px solid var(--ink)}
+.steps li::before{content:"Step " counter(s);font-family:var(--mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.steps p{color:var(--muted);font-size:.95rem}
+
+/* checker */
+.checker{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.progress{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar{flex:1 1 200px;height:6px;background:var(--band);border-radius:3px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--accent);width:0;transition:width .3s ease}
+.panel{padding:28px 24px 32px;display:flex;flex-direction:column;gap:20px}
+.panel h3{font-size:1.4rem;font-family:var(--display);font-weight:700}
+.opts{display:grid;gap:10px}
+.opt{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--bg);text-align:left;width:100%}
+.opt:hover{border-color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--accent);background:var(--tint)}
+.opt .dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.opt[aria-pressed="true"] .dot{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
+.opt small{display:block;color:var(--muted);font-size:.85rem}
+.nav-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.note{border-radius:12px;padding:14px 16px;background:var(--warn-tint);color:var(--ink);font-size:.95rem}
+.note.good{background:var(--tint)}
+.err{color:var(--danger);font-size:.85rem;min-height:1.2em}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:560px){.form-grid{grid-template-columns:1fr}}
+.form-grid .field input{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}
+.consent{display:flex;gap:10px;align-items:flex-start;font-size:.92rem;color:var(--muted)}
+.consent input{margin-top:4px;accent-color:var(--accent)}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:560px){.summary{grid-template-columns:1fr}}
+.summary div{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
+.summary .v{font-family:var(--mono);font-size:1.5rem;font-weight:500}
+.summary .accent .v{color:var(--accent)}
+
+/* fees */
+.fees{display:grid;grid-template-columns:.9fr 1.1fr;gap:32px;align-items:start}
+@media (max-width:820px){.fees{grid-template-columns:1fr}}
+.fee-big{font-family:var(--display);font-weight:700;font-size:clamp(3.4rem,8vw,5.4rem);line-height:1;color:var(--accent)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:.95rem}
+th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:600}
+
+/* faq */
+.faq{display:grid;gap:10px}
+details{border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:0 18px}
+summary{cursor:pointer;padding:16px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
+summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+details[open] summary::after{content:"−"}
+details p{padding-bottom:16px;color:var(--muted)}
+
+footer{border-top:1px solid var(--line);padding-block:32px 48px;display:flex;flex-direction:column;gap:12px;color:var(--muted);font-size:.88rem}
+.free-line{border-left:3px solid var(--accent);padding:10px 14px;background:var(--paper);border-radius:0;color:var(--ink)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="wrap nav">
+    <a class="logo" href="#top" aria-label="TopBand Relief home"><span class="logo-mark" aria-hidden="true"></span>TopBand Relief</a>
+    <nav class="links" aria-label="Main">
+      <a class="plain" href="#how">How it works</a>
+      <a class="plain" href="#fees">Fees</a>
+      <a class="plain" href="#faq">FAQ</a>
+      <a class="btn btn-primary" href="#check">Check now</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+  <section class="hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Higher rate pension tax relief</span>
+      <h1>Pay 40% tax and save into a pension? HMRC may owe you <em>up to four years</em> of relief.</h1>
+      <p class="lede">Most pension schemes only add the basic 20%. Higher and additional rate taxpayers have to claim the rest themselves, and around 800,000 people don't. We check, gather the evidence and make the claim for you.</p>
+      <ul class="ticks">
+        <li>60-second check</li>
+        <li>Free to find out</li>
+        <li>No win, no fee</li>
+      </ul>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="#check">Check if I'm owed</a>
+        <a class="btn btn-ghost" href="#how">How it works</a>
+      </div>
+      <p class="small">You can claim directly from HMRC for free. We offer an optional service that does the work for you.</p>
+    </div>
+
+    <aside class="estimator" aria-labelledby="est-title">
+      <div class="est-head">
+        <h3 id="est-title">Quick estimate</h3>
+        <span class="small">Example figures, move the sliders</span>
+      </div>
+      <div class="field">
+        <label for="inc">Your annual income <output id="incOut" class="num"></output></label>
+        <input id="inc" type="range" min="50000" max="160000" step="1000" value="72000">
+      </div>
+      <div class="ruler" aria-hidden="true">
+        <div class="ruler-track"><div class="seg basic" id="segB"></div><div class="seg higher" id="segH"></div><div class="seg add" id="segA"></div></div>
+        <span class="ruler-mark" id="m1"></span><span class="ruler-lab" id="l1">£50,270 · 40%</span>
+        <span class="ruler-mark" id="m2"></span><span class="ruler-lab" id="l2">£125,140 · 45%</span>
+        <span class="ruler-pin" id="pin"></span><span class="ruler-you" id="you">You</span>
+      </div>
+      <div class="field">
+        <label for="mon">You pay into your pension each month <output id="monOut" class="num"></output></label>
+        <input id="mon" type="range" min="50" max="2000" step="25" value="400">
+      </div>
+      <div class="field">
+        <label for="yrs">Years you haven't claimed (max 4) <output id="yrsOut" class="num"></output></label>
+        <input id="yrs" type="range" min="1" max="4" step="1" value="4">
+      </div>
+      <div class="result-grid">
+        <div><span class="k">Relief owed</span><span class="v big" id="rTotal">£0</span></div>
+        <div><span class="k">Our fee (36%)</span><span class="v" id="rFee">£0</span></div>
+        <div><span class="k">You keep</span><span class="v" id="rKeep">£0</span></div>
+      </div>
+      <p class="small">Estimate only, for England, Wales and Northern Ireland rates. Assumes a relief at source pension and the same income each year. Not guaranteed.</p>
+    </aside>
+  </section>
+
+  <section class="block" aria-labelledby="why-t">
+    <div class="section-head">
+      <span class="eyebrow">Why it's missed</span>
+      <h2 id="why-t">Your pension provider only claims half the relief</h2>
+    </div>
+    <div class="why">
+      <article><span class="stat">20%</span><h3>Added automatically</h3><p>Relief at source pensions and SIPPs claim basic rate relief from HMRC and add it to your pot.</p></article>
+      <article><span class="stat">+20–25%</span><h3>Left for you to claim</h3><p>If you pay 40% or 45% tax, the extra relief only arrives if you ask HMRC for it, with evidence for each year.</p></article>
+      <article><span class="stat">4 years</span><h3>Before it's lost</h3><p>You can go back four tax years. After that, unclaimed relief for the oldest year is gone for good.</p></article>
+    </div>
+  </section>
+
+  <section class="block" id="how" aria-labelledby="how-t">
+    <div class="section-head">
+      <span class="eyebrow">How it works</span>
+      <h2 id="how-t">You answer six questions. We handle HMRC.</h2>
+    </div>
+    <ol class="steps">
+      <li><h3>Check</h3><p>Answer a few questions about your income and pension. It takes about a minute.</p></li>
+      <li><h3>Gather</h3><p>With your authority, we request statements from your pension providers for each tax year.</p></li>
+      <li><h3>Claim</h3><p>We check every figure, then claim through your tax return or by letter to HMRC.</p></li>
+      <li><h3>Get paid</h3><p>HMRC pays you directly. We invoice our fee only once you've received backdated relief.</p></li>
+    </ol>
+  </section>
+
+  <section class="block" id="check" aria-labelledby="chk-t">
+    <div class="section-head">
+      <span class="eyebrow">Eligibility check</span>
+      <h2 id="chk-t">Find out in 60 seconds</h2>
+    </div>
+    <div class="checker">
+      <div class="progress">
+        <div class="bar" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" id="bar"><span id="barFill"></span></div>
+        <span class="small num" id="timeLeft">About 60 seconds left</span>
+      </div>
+      <div class="panel" id="panel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="block" id="fees" aria-labelledby="fees-t">
+    <div class="section-head">
+      <span class="eyebrow">Fees</span>
+      <h2 id="fees-t">No win, no fee. One simple rate.</h2>
+    </div>
+    <div class="fees">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="fee-big num">36%</div>
+        <p>Our fee is 30% of the backdated relief you receive, plus VAT at 20%, which makes 36% in total.</p>
+        <ul style="margin:0;padding-left:20px;color:var(--muted);display:grid;gap:6px">
+          <li>Nothing to pay upfront</li>
+          <li>Nothing to pay if no relief is due</li>
+          <li>No fee on future savings through your tax code</li>
+          <li>HMRC pays you directly; we invoice once you've received it, due within 14 days</li>
+        </ul>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption class="small" style="text-align:left;padding:12px 16px">Example: four years at the average unclaimed relief</caption>
+          <tbody>
+            <tr><td>Backdated relief (4 × £1,756)</td><td class="r">£7,024</td></tr>
+            <tr><td>Our fee (30%)</td><td class="r">−£2,107.20</td></tr>
+            <tr><td>VAT on our fee (20%)</td><td class="r">−£421.44</td></tr>
+            <tr class="total"><td>You keep</td><td class="r">£4,495.36</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="free-line">You don't have to use us. You can claim directly from HMRC for free through your Self Assessment return or HMRC's online service, and keep 100% of the relief.</p>
+  </section>
+
+  <section class="block" id="faq" aria-labelledby="faq-t">
+    <div class="section-head">
+      <span class="eyebrow">Questions</span>
+      <h2 id="faq-t">Common questions</h2>
+    </div>
+    <div class="faq">
+      <details><summary>Who is likely to be owed relief?</summary><p>People who pay tax at 40% or 45% and pay into a personal pension, a SIPP, or a workplace pension taken from take-home pay (relief at source). If your contributions come out of your pay before tax, or through salary sacrifice, you already get full relief.</p></details>
+      <details><summary>How far back can you claim?</summary><p>Up to four tax years. Relief for the oldest year expires at the end of each tax year, so it's worth checking sooner rather than later.</p></details>
+      <details><summary>How is the money paid?</summary><p>HMRC pays you directly, usually as a refund for past years. For the current year it often adjusts your tax code instead. We never receive your money.</p></details>
+      <details><summary>What do you need from me?</summary><p>Photo ID, your National Insurance number, your pension provider details and your signed authority for us to act for you. We request the statements HMRC requires for each year.</p></details>
+      <details><summary>How long does it take?</summary><p>HMRC aims to respond within 28 working days of receiving a claim. Gathering statements from providers usually adds a few weeks.</p></details>
+      <details><summary>Are you part of HMRC?</summary><p>No. We are an independent company acting as your agent. We are not affiliated with or endorsed by HMRC.</p></details>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong style="color:var(--ink)">TopBand Relief</strong> is a working name. Company number, registered address and HMRC agent reference to be added before launch.</p>
+    <p>Estimates are illustrative and not guaranteed. Eligibility and amounts depend on your income, pension type and tax history. This site does not give financial advice.</p>
+    <p>Not affiliated with HMRC. You can claim tax relief directly from HMRC for free.</p>
+  </footer>
+</main>
+
+<script>
+(function(){
+  const HR=50270, AR=125140;
+  const gbp=n=>"£"+Math.round(n).toLocaleString("en-GB");
+  function relief(income, monthlyNet, years){
+    let g=monthlyNet*12/0.8, r=0;
+    const addPart=Math.max(0,income-AR), higherPart=Math.max(0,Math.min(income,AR)-HR);
+    const a=Math.min(g,addPart); r+=a*0.25; g-=a;
+    const h=Math.min(g,higherPart); r+=h*0.20;
+    const total=r*years, fee=total*0.36;
+    return {perYear:r,total,fee,keep:total-fee};
+  }
+
+  /* estimator */
+  const inc=document.getElementById("inc"), mon=document.getElementById("mon"), yrs=document.getElementById("yrs");
+  const MIN=0, MAX=170000, pct=v=>Math.min(100,Math.max(0,(v-MIN)/(MAX-MIN)*100));
+  function place(){
+    document.getElementById("segB").style.width=pct(HR)+"%";
+    document.getElementById("segH").style.width=(pct(AR)-pct(HR))+"%";
+    document.getElementById("segA").style.width=(100-pct(AR))+"%";
+    for(const [m,l,v] of [["m1","l1",HR],["m2","l2",AR]]){
+      document.getElementById(m).style.left=pct(v)+"%";
+      const lab=document.getElementById(l); lab.style.left=pct(v)+"%";
+    }
+  }
+  function update(){
+    const i=+inc.value, m=+mon.value, y=+yrs.value;
+    document.getElementById("incOut").textContent=gbp(i);
+    document.getElementById("monOut").textContent=gbp(m);
+    document.getElementById("yrsOut").textContent=y;
+    document.getElementById("pin").style.left=pct(i)+"%";
+    document.getElementById("you").style.left=pct(i)+"%";
+    const r=relief(i,m,y);
+    document.getElementById("rTotal").textContent=gbp(r.total);
+    document.getElementById("rFee").textContent=gbp(r.fee);
+    document.getElementById("rKeep").textContent=gbp(r.keep);
+  }
+  place();[inc,mon,yrs].forEach(e=>e.addEventListener("input",update));update();
+
+  /* checker */
+  const panel=document.getElementById("panel"), fill=document.getElementById("barFill"), bar=document.getElementById("bar"), timeLeft=document.getElementById("timeLeft");
+  const A={};
+  const steps=[
+    {id:"income",q:"Has your income been over £50,270 in any of the last four tax years?",help:"Include salary, bonuses and other taxable income.",
+     opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]],
+     stop:{no:"Relief above 20% is only due on income taxed at 40% or more, so it doesn't look like you're owed anything. If your income rises above £50,270 in future, check again."}},
+    {id:"scheme",q:"How do you pay into your pension?",
+     opts:[["ras","Workplace pension from my take-home pay","Often called relief at source"],["personal","Personal pension or SIPP","Including ones you set up yourself"],["sacrifice","Salary sacrifice"],["netpay","Taken from my pay before tax","Often called net pay"],["unsure","Not sure","We'll check this for you"]],
+     stop:{sacrifice:"With salary sacrifice you already get full tax relief through your pay, so there's nothing extra to claim.",netpay:"When contributions come out before tax, you already get full relief through payroll, so there's nothing extra to claim."}},
+    {id:"band",q:"Roughly what is your annual income now?",
+     opts:[["55000","£50,271 to £60,000"],["70000","£60,001 to £80,000"],["90000","£80,001 to £100,000"],["112500","£100,001 to £125,140","We'll also check your personal allowance"],["140000","Over £125,140"]]},
+    {id:"monthly",q:"Roughly how much do you pay in each month?",help:"The amount that leaves your bank account or payslip, before any top-up.",
+     opts:[["75","Under £100"],["175","£100 to £250"],["375","£250 to £500"],["750","£500 to £1,000"],["1250","Over £1,000"]]},
+    {id:"claimed",q:"Have you ever claimed extra pension tax relief from HMRC?",
+     opts:[["no","No"],["some","Yes, for some years"],["all","Yes, every year"],["unsure","Not sure"]],
+     stop:{all:"If you've claimed every year, your relief should already be up to date. If anything changed, such as a new pension or a pay rise, it's worth checking again."}},
+    {id:"sa",q:"Do you complete a Self Assessment tax return?",help:"This decides how we make your claim.",
+     opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]]},
+    {id:"contact",contact:true}
+  ];
+  let idx=0;
+  const total=steps.length;
+
+  function progress(){
+    const p=Math.round(idx/total*100);
+    fill.style.width=p+"%"; bar.setAttribute("aria-valuenow",p);
+    const secs=Math.max(0,Math.round((total-idx)*60/total));
+    timeLeft.textContent= idx>=total ? "Done" : `About ${secs} seconds left`;
+  }
+
+  function el(tag,attrs={},html){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
+
+  function render(){
+    progress();
+    panel.innerHTML="";
+    if(idx>=total) return renderResult();
+    const s=steps[idx];
+    if(s.contact) return renderContact();
+    panel.append(el("span",{class:"eyebrow"},`Question ${idx+1} of ${total-1}`));
+    panel.append(el("h3",{},s.q));
+    if(s.help) panel.append(el("p",{class:"small"},s.help));
+    const opts=el("div",{class:"opts",role:"group","aria-label":s.q});
+    s.opts.forEach(([v,label,sub])=>{
+      const b=el("button",{type:"button",class:"opt","aria-pressed":String(A[s.id]===v)},`<span class="dot" aria-hidden="true"></span><span>${label}${sub?`<small>${sub}</small>`:""}</span>`);
+      b.addEventListener("click",()=>{A[s.id]=v; if(s.stop&&s.stop[v]) return renderStop(s.stop[v]); idx++; render(); focusPanel();});
+      opts.append(b);
+    });
+    panel.append(opts);
+    if(idx>0){const row=el("div",{class:"nav-row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=()=>{idx--;render();focusPanel();};row.append(back);panel.append(row);}
+  }
+
+  function renderStop(msg){
+    panel.innerHTML="";
+    panel.append(el("span",{class:"eyebrow"},"Result"));
+    panel.append(el("h3",{},"It doesn't look like you're owed relief"));
+    panel.append(el("p",{class:"note"},msg));
+    const row=el("div",{class:"nav-row"});
+    const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
+    const restart=el("button",{type:"button",class:"btn btn-ghost"},"Start again");restart.onclick=()=>{for(const k in A)delete A[k];idx=0;render();focusPanel();};
+    row.append(back,restart);panel.append(row);
+  }
+
+  function renderContact(){
+    panel.append(el("span",{class:"eyebrow"},"Last step"));
+    panel.append(el("h3",{},"Where should we send your result?"));
+    panel.append(el("p",{class:"small"},"We'll show your estimate on the next screen and email you a copy."));
+    const f=el("form",{novalidate:"",id:"contactForm"});
+    f.style.display="flex";f.style.flexDirection="column";f.style.gap="14px";
+    f.innerHTML=`<div class="form-grid">
+      <div class="field"><label for="fn">First name</label><input id="fn" autocomplete="given-name" required><span class="err" id="fnErr"></span></div>
+      <div class="field"><label for="ln">Last name</label><input id="ln" autocomplete="family-name" required><span class="err" id="lnErr"></span></div>
+      <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" required><span class="err" id="emErr"></span></div>
+      <div class="field"><label for="ph">Mobile</label><input id="ph" type="tel" autocomplete="tel" required><span class="err" id="phErr"></span></div>
+    </div>
+    <label class="consent"><input type="checkbox" id="ok"> <span>I agree to TopBand Relief contacting me about my claim by phone, SMS, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
+    <span class="err" id="okErr"></span>
+    <div class="nav-row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
+    panel.append(f);
+    ["fn","ln","em","ph"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{f.querySelector("#"+k+"Err").textContent="";});});
+    f.querySelector("#ok").checked=!!A.ok;
+    f.querySelector("#ok").addEventListener("change",()=>{f.querySelector("#okErr").textContent="";});
+    f.querySelector("#back").onclick=()=>{idx--;render();focusPanel();};
+    f.addEventListener("submit",e=>{
+      e.preventDefault();
+      const v=k=>f.querySelector("#"+k).value.trim(); let bad=false;
+      const set=(k,m)=>{f.querySelector("#"+k+"Err").textContent=m; if(m) bad=true;};
+      set("fn", v("fn")?"":"Enter your first name");
+      set("ln", v("ln")?"":"Enter your last name");
+      set("em", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address like name@example.com");
+      set("ph", /^(\+44\s?7\d{3}|07\d{3})\s?\d{3}\s?\d{3}$/.test(v("ph").replace(/\s+/g," "))?"":"Enter a UK mobile number, like 07700 900123");
+      set("ok", f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your claim");
+      if(bad) return;
+      ["fn","ln","em","ph"].forEach(k=>A[k]=v(k)); A.ok=true;
+      idx++; render(); focusPanel();
+    });
+  }
+
+  function renderResult(){
+    const income=+A.band, monthly=+A.monthly;
+    const years = A.claimed==="some" ? 2 : 4;
+    const r=relief(income,monthly,years);
+    panel.append(el("span",{class:"eyebrow"},"Your estimate"));
+    panel.append(el("h3",{},`${A.fn}, it looks like you could be owed about ${gbp(r.total)}`));
+    const sum=el("div",{class:"summary"});
+    sum.innerHTML=`<div class="accent"><span class="small">Backdated relief, ${years} years</span><span class="v">${gbp(r.total)}</span></div>
+      <div><span class="small">Our fee, 36% inc. VAT</span><span class="v">${gbp(r.fee)}</span></div>
+      <div><span class="small">You keep</span><span class="v">${gbp(r.keep)}</span></div>`;
+    panel.append(sum);
+    const route = A.sa==="yes" ? "As you file Self Assessment, we'd claim through your tax returns." : A.sa==="no" ? "As you don't file Self Assessment, we'd make a written claim to HMRC with your pension statements." : "We'll confirm whether to claim through Self Assessment or by letter to HMRC.";
+    const notes=[route];
+    if(A.scheme==="unsure") notes.push("We'll confirm your pension type from your provider before claiming.");
+    if(A.income==="unsure") notes.push("We'll confirm your tax band for each year from your P60s.");
+    if(+A.band===112500) notes.push("Your income is in the £100,000 to £125,140 band, where pension contributions can also restore your personal allowance. We'll check this too.");
+    if(A.claimed==="some") notes.push("You've claimed for some years, so this estimate covers two years. We'll confirm which years are still open.");
+    panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
+    panel.append(el("p",{class:"small"},"This is an estimate based on your answers and is not guaranteed. You can claim directly from HMRC for free and keep 100% of the relief."));
+    const row=el("div",{class:"nav-row"});
+    const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
+    const go=el("button",{type:"button",class:"btn btn-primary"},"Start my claim");
+    go.onclick=()=>{
+      panel.innerHTML="";
+      panel.append(el("span",{class:"eyebrow"},"Next steps"));
+      panel.append(el("h3",{},"Thanks, your claim is ready to start"));
+      panel.append(el("ol",{style:"margin:0;padding-left:20px;display:grid;gap:8px"},"<li>We'll email you a link to verify your ID and sign your authority.</li><li>We request your pension statements for each year.</li><li>We check the figures and send your claim to HMRC.</li>"));
+      panel.append(el("p",{class:"note"},"Preview version: nothing has been sent yet. This step will connect to the CRM."));
+    };
+    row.append(back,go);panel.append(row);
+  }
+
+  function focusPanel(){const h=panel.querySelector("h3");if(h){h.setAttribute("tabindex","-1");h.focus({preventScroll:true});}}
+  render();
+})();
+</script>
+
+</body>
+</html>
