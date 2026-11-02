@@ -36,7 +36,7 @@ const INIT_SQL = `
 `;
 
 module.exports = function esign(ctx) {
-  const { pool, log, page, esc, fmtDate, iso, today, addDays, validNi, requestYears, sendEmail, BRAND, PHONE, SESSION_SECRET, clip } = ctx;
+  const { pool, log, page, esc, fmtDate, iso, today, addDays, validNi, requestYears, sendEmail, BRAND, PHONE, SESSION_SECRET, clip, claimSummary } = ctx;
   const ipOf = req => (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
   const uaOf = req => clip(req.headers["user-agent"], 300);
   const event = (rid, ev, req) => pool.query("INSERT INTO sign_events(request_id,event,ip,ua) VALUES($1,$2,$3,$4)", [rid, ev, req ? ipOf(req) : null, req ? uaOf(req) : null]);
@@ -202,7 +202,7 @@ module.exports = function esign(ctx) {
         if (!verified(req, r)) return res.redirect(`/sign/${r.token}`);
         if (["sent", "opened"].includes(r.status)) {
           await event(r.id, "Asked for paper copies instead", req);
-          await pool.query("UPDATE leads SET next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id, "Client asked for paper: post the documents with a reply envelope"]);
+          await pool.query("UPDATE leads SET paper_requested=true, next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id, "Client asked for paper: post the documents with a reply envelope (see Post)"]);
           await log(r.lead_id, "esign", "Client asked to sign on paper instead. Post the same version of the documents.");
         }
         res.send(shell("Paper copies", `<div class="panel"><h1>We'll post them to you</h1><p>Thank you. We'll post paper copies of the same documents with a prepaid envelope, usually within 2 working days. You don't need to do anything else now.</p></div>`));
@@ -224,7 +224,7 @@ module.exports = function esign(ctx) {
       app.get("/lead/:id/esign/new", async (req, res) => {
         const L = await getLead(req.params.id); if (!L) return res.redirect("/");
         const kind = req.query.kind === "cf411" ? "cf411" : "pack";
-        const body = { include_ni: req.query.include_ni === "1", claim_details: req.query.claim_details || "" };
+        const body = { include_ni: req.query.include_ni === "1", claim_details: req.query.claim_details || (kind === "cf411" && claimSummary ? claimSummary(L) : "") };
         const { docs, missing } = await build(L, kind, body);
         const blocked = missing.length && !L.is_test;
         const years = requestYears(L);
@@ -313,6 +313,18 @@ module.exports = function esign(ctx) {
       });
     },
 
+    /* for print-and-post: latest signed (or open, for paper) request of a kind */
+    async latest(leadId, kind, statuses) {
+      return (await pool.query("SELECT * FROM sign_requests WHERE lead_id=$1 AND kind=$2 AND status = ANY($3) ORDER BY id DESC LIMIT 1", [leadId, kind, statuses])).rows[0];
+    },
+    docsForPrint(r, keys, paper) {
+      return r.docs.filter(d => !keys || keys.includes(d.key)).map(d => `<article class="doc">${d.html}
+        ${paper ? `<div style="margin-top:1.4em;font-family:system-ui,sans-serif"><p>Signed: ______________________________ Date: ______________</p><p>Print name: ______________________________</p></div>`
+        : r.signed_at ? `<div style="border-top:2px solid #ddd5e1;margin-top:1.2em;padding-top:.8em;font-family:system-ui,sans-serif"><p style="margin:0 0 6px"><b>Signed electronically by ${esc(r.signer_name)}</b> on ${esc(london(r.signed_at))}. Record ${r.id}, version ${r.version}.</p>
+        ${r.signature_png ? `<img src="${r.signature_png}" alt="Signature" style="max-width:320px;max-height:110px;border-bottom:1px solid #999">` : `<p style="font:italic 1.6rem Georgia,serif;margin:4px 0">${esc(r.signer_name)}</p>`}<p class="doc-small">Fingerprint SHA-256 ${esc(d.hash)}</p></div>` : ""}</article>`).join("");
+    },
+    settings,
+    DOC_CSS,
     /* panel for the client record */
     async leadPanel(L) {
       const rs = (await pool.query("SELECT id, kind, version, status, created_at, signed_at, opened_at FROM sign_requests WHERE lead_id=$1 ORDER BY created_at DESC", [L.id])).rows;

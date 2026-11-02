@@ -29,7 +29,9 @@ const STAGES = [
   { id: "signed", group: "ID check", label: "Signed, ID check", next: ["Run the electronic ID check. Nothing moves on until it passes", 0] },
   { id: "ni_wait", group: "HMRC", label: "Invited to share NI record", next: ["If the client hasn't shared their NI record, send the targeted request to HMRC", 7] },
   { id: "ni_requested", group: "HMRC", label: "NI record requested", next: ["Chase HMRC for the NI record", 21] },
+  { id: "resubmit_648", group: "HMRC", label: "64-8 rejected, resubmit", next: ["Fix the 64-8 problem and resubmit it to HMRC", 1] },
   { id: "dwp_requested", group: "DWP", label: "DWP info requested", next: ["Chase DWP for the information", 21] },
+  { id: "uplift_dwp", group: "DWP", label: "Uplift claim with DWP", next: ["Chase DWP on the married or widowed uplift claim", 30] },
   { id: "preparing", group: "Review", label: "Reviewing evidence", next: ["Decide: prepare CF411 if HMRC and DWP evidence supports a claim, otherwise close", 3] },
   { id: "cf411_sent", group: "CF411", label: "CF411 sent to sign", next: ["Chase the client's CF411 signature", 5] },
   { id: "submitted", group: "CF411", label: "CF411 with HMRC", next: ["Monthly update to client; chase HMRC if past reply date", 30] },
@@ -40,15 +42,19 @@ const STAGES = [
   { id: "paid", group: "Closed", label: "Fee paid", next: ["Ask for a review and referral", 1] },
   { id: "closed_none", group: "Closed", label: "Closed: nothing owed", next: null },
   { id: "closed_withdrawn", group: "Closed", label: "Closed: cancelled in cooling-off (no fee)", next: null },
-  { id: "closed_lost", group: "Closed", label: "Closed: not going ahead", next: null }
+  { id: "closed_lost", group: "Closed", label: "Closed: not going ahead", next: null },
+  { id: "closed_ineligible", group: "Closed", label: "Closed: does not qualify", next: null },
+  { id: "closed_fulltime", group: "Closed", label: "Closed: worked full time, no years", next: null },
+  { id: "closed_duplicate", group: "Closed", label: "Closed: duplicate", next: null },
+  { id: "closed_nocontact", group: "Closed", label: "Closed: no contact", next: null }
 ];
 const STAGE = Object.fromEntries(STAGES.map(s => [s.id, s]));
-const DONE = ["paid", "closed_none", "closed_withdrawn", "closed_lost"];
+const DONE = ["paid", "closed_none", "closed_withdrawn", "closed_lost", "closed_ineligible", "closed_fulltime", "closed_duplicate", "closed_nocontact"];
 const OPEN_STAGES = STAGES.filter(s => !DONE.includes(s.id));
 const DONE_SQL = "ARRAY['" + DONE.join("','") + "']";
 const ORDER = STAGES.map(s => s.id);
 /* stages that need a passed ID check first */
-const NEEDS_ID = ["ni_wait", "ni_requested", "dwp_requested", "preparing", "cf411_sent", "submitted", "decision", "invoiced", "payment_plan", "paid"];
+const NEEDS_ID = ["ni_wait", "ni_requested", "resubmit_648", "uplift_dwp", "dwp_requested", "preparing", "cf411_sent", "submitted", "decision", "invoiced", "payment_plan", "paid"];
 const KYC = { pending: "Pending", passed: "Passed", escalation: "Escalated for review", failed: "Failed" };
 
 const CLIENT_STEPS = ["Enquiry received", "Your paperwork", "Gathering your records", "Claim with HMRC", "Decision made", "Complete"];
@@ -72,8 +78,16 @@ const CLIENT_STAGE = {
   paid: [5, "Your claim is complete. Thank you for using us."],
   closed_none: [5, "This claim is now closed. Please call us if you have any questions."],
   closed_withdrawn: [5, "You cancelled within the cooling-off period, so there is nothing to pay. Please call us if you have any questions."],
-  closed_lost: [5, "This claim is now closed. Please call us if you have any questions."]
+  closed_lost: [5, "This claim is now closed. Please call us if you have any questions."],
+  resubmit_648: [2, "HMRC needs us to resend your authority form. We're dealing with it and there's nothing you need to do."],
+  uplift_dwp: [3, "We've sent your State Pension increase claim to DWP. We'll chase them and keep you updated."],
+  closed_ineligible: [5, "We've looked at your records and you don't qualify for a claim, so there's nothing to pay. Please call us if you have any questions."],
+  closed_fulltime: [5, "Your records show you were working full time in the relevant years, so there's nothing to claim and nothing to pay."],
+  closed_duplicate: [5, "This enquiry is a duplicate of another one we hold for you, so we've closed it. Your other claim carries on."],
+  closed_nocontact: [5, "We closed this enquiry because we couldn't reach you. Please call us if you'd like to carry on."]
 };
+const CLAIM_TYPES = { hrp: "Missing HRP", married: "Married uplift", widowed: "Widowed uplift", divorced: "Former partner's record", over80: "Over-80 pension", other: "Other record error" };
+const FILE_KINDS = { soa: "NI statement (SoA) from HMRC", reject648: "64-8 rejection from HMRC", cf411reply: "CF411 reply from HMRC", dwp: "DWP letter", arrears: "DWP arrears letter", id: "ID document", other: "Other" };
 const LABELS = {
   cb: { yes: "Yes, paid to the client", partner: "Paid to partner (partner should claim)", no: "No", unsure: "Not sure" },
   care: { yes: "Yes", no: "No" },
@@ -100,8 +114,55 @@ const fmtNi = n => n && n.length === 9 ? `${n.slice(0, 2)} ${n.slice(2, 4)} ${n.
 const ty = y => `${y}–${String(y + 1).slice(2)}`;
 const parseYears = v => [...new Set(String(v ?? "").split(/[^0-9]+/).map(Number).filter(y => y >= 1978 && y <= 2009))].sort((a, b) => a - b);
 /* the tax years to ask HMRC about: Child Benefit years (child under 16), 1978-79 to 2009-10, minus full-time years */
+/* tax year a date falls in (tax years start 6 April) */
+const taxYearOf = d => { const x = new Date(String(d).slice(0, 10) + "T12:00:00Z"); const y = x.getUTCFullYear(); return (x.getUTCMonth() > 3 || (x.getUTCMonth() === 3 && x.getUTCDate() >= 6)) ? y : y - 1; };
+const kids = L => (Array.isArray(L.children) ? L.children : []).filter(c => c && (c.name || c.dob));
+/* Child Benefit years for children under 16: from the eldest's birth to the youngest's 16th birthday */
+function cbRange(L) {
+  const dobs = kids(L).map(c => c.dob).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d || "")).sort();
+  if (L.cb_from && L.cb_to) return [L.cb_from, L.cb_to];
+  if (dobs.length) { const last = dobs[dobs.length - 1]; return [taxYearOf(dobs[0]), taxYearOf((Number(last.slice(0, 4)) + 16) + last.slice(4)) - 1]; }
+  if (L.kid1) return [Number(L.kid1), L.kid2 ? Number(L.kid2) + 15 : Number(L.kid1) + 15];
+  return null;
+}
+const hrpMap = L => (L.hrp_years && typeof L.hrp_years === "object" ? L.hrp_years : {});
+/* years HMRC's record shows HRP missing for, within the Child Benefit years */
+function hrpDue(L) { const m = hrpMap(L); return Object.keys(m).filter(y => m[y] === "missing").map(Number).sort((a, b) => a - b); }
+function hrpAudit(L) {
+  const m = hrpMap(L), ft = new Set(parseYears(L.ft_years)), vals = Object.values(m);
+  if (!vals.length) return null;
+  const conflict = Object.keys(m).filter(y => m[y] === "missing" && ft.has(Number(y)));
+  if (conflict.length) return { kind: "conflict", text: `HRP conflict: marked missing but also listed as full-time in ${yearRanges(conflict.map(Number))}` };
+  const due = hrpDue(L);
+  return due.length ? { kind: "due", text: `HRP due for ${due.length} year${due.length > 1 ? "s" : ""}: ${yearRanges(due)}` } : { kind: "notdue", text: "HRP not due: every year checked is already covered" };
+}
+function claimSummary(L) {
+  const due = hrpDue(L), ks = kids(L);
+  const lines = [];
+  lines.push(due.length ? `Tax years claimed: ${yearRanges(due)} (${due.length} year${due.length > 1 ? "s" : ""})` : "Tax years claimed: [record HMRC's answer for each year on the client record]");
+  if (ks.length) { lines.push("Children:"); ks.forEach(c => lines.push(`- ${c.name || "[name]"}, born ${c.dob ? fmtDate(c.dob) : "[date of birth]"}${c.father ? `, father ${c.father}` : ""}`)); }
+  else lines.push("Children: [add each child on the client record]");
+  lines.push(`Child Benefit paid to: ${[L.title, L.first_name, L.last_name].filter(Boolean).join(" ")}`);
+  return lines.join("\n");
+}
+const PC_RE = /^(GIR ?0AA|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})$/i;
+/* field-level checks at capture: each is ok / bad / missing, plus a message */
+function validation(L, signedName) {
+  const v = [];
+  const nm = [L.first_name, L.last_name].every(x => x && String(x).trim().length >= 2);
+  v.push({ key: "name", label: "Name", st: nm ? (L.hmrc_name && L.hmrc_name.trim().toLowerCase() !== [L.first_name, L.last_name].join(" ").toLowerCase() ? "ok" : "ok") : "bad", msg: nm ? (L.hmrc_name ? `HMRC holds "${L.hmrc_name}"` : "Confirm the name HMRC holds") : "First and last name needed" });
+  if (!L.dob) v.push({ key: "dob", label: "Date of birth", st: "missing", msg: "Not recorded" });
+  else { const y = Number(iso(L.dob).slice(0, 4)); const bad = L.born && y !== Number(L.born); const age = new Date().getUTCFullYear() - y;
+    v.push({ key: "dob", label: "Date of birth", st: bad || age < 60 || age > 110 ? "bad" : "ok", msg: bad ? `Year doesn't match the check (${L.born})` : age < 60 ? "Too young for State Pension" : age > 110 ? "Looks wrong" : fmtDate(iso(L.dob)) }); }
+  v.push({ key: "ni", label: "NI number", st: !L.ni_number ? "missing" : validNi(L.ni_number) ? "ok" : "bad", msg: !L.ni_number ? "Not recorded" : validNi(L.ni_number) ? fmtNi(L.ni_number) : "Not a valid format" });
+  v.push({ key: "address", label: "Address", st: !L.address || !L.postcode ? "missing" : PC_RE.test(String(L.postcode).trim()) ? "ok" : "bad", msg: !L.address || !L.postcode ? "Address and postcode needed" : PC_RE.test(String(L.postcode).trim()) ? L.postcode : "Postcode isn't a valid UK format" });
+  v.push({ key: "signature", label: "Signature", st: signedName === undefined ? "missing" : signedName === null ? "missing" : "ok", msg: signedName ? `Signed as "${signedName}"` : "Pack not signed yet" });
+  v.push({ key: "hmrc", label: "HMRC details verified", st: L.hmrc_verified ? "ok" : "missing", msg: L.hmrc_verified ? "Matches HMRC's records" : "Not yet checked against HMRC" });
+  return v;
+}
 function requestYears(L) {
-  const from = L.cb_from || L.kid1, to = L.cb_to || (L.kid2 ? Number(L.kid2) + 15 : null);
+  const cr = cbRange(L);
+  const from = cr && cr[0], to = cr && cr[1];
   if (!from || !to) return null;
   const ft = new Set(parseYears(L.ft_years)), out = [];
   for (let y = Math.max(1978, from); y <= Math.min(2009, to); y++) if (!ft.has(y)) out.push(y);
@@ -119,6 +180,10 @@ async function findDuplicate(id, f) {
       OR (lower(first_name) = lower($5) AND lower(last_name) = lower($6) AND born IS NOT DISTINCT FROM $7))
     ORDER BY id LIMIT 1`, [id, f.email || "", digits.length >= 9 ? digits : "", f.ni_number || "", f.first_name || "", f.last_name || "", f.born || null]);
   if (r.rows[0]) { await pool.query("UPDATE leads SET dup_of=$2 WHERE id=$1", [id, r.rows[0].id]); await log(id, "check", `Possible duplicate of ref ${r.rows[0].id}. Check before contacting.`); }
+  else if (f.ip) {
+    const ipm = await pool.query("SELECT id FROM leads WHERE id <> $1 AND NOT is_test AND ip = $2 AND created_at > now() - interval '30 days' ORDER BY id LIMIT 1", [id, f.ip]);
+    if (ipm.rows[0]) await log(id, "check", `Sent from the same internet connection as ref ${ipm.rows[0].id} in the last 30 days. Could be the same household, or a duplicate.`);
+  }
 }
 
 /* ---------- auth ---------- */
@@ -129,6 +194,17 @@ function validSession(c) {
   const good = sign(exp); return mac.length === good.length && crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(good));
 }
 function cookies(req) { return Object.fromEntries((req.headers.cookie || "").split(";").map(p => p.trim().split("=").map(decodeURIComponent)).filter(p => p[0])); }
+let ipList = { at: 0, list: [] };
+async function allowedIps() {
+  if (Date.now() - ipList.at > 60e3 && pool) { try { const r = await pool.query("SELECT value FROM settings WHERE key='staff_ips'"); ipList = { at: Date.now(), list: String((r.rows[0] || {}).value || "").split(/[\s,]+/).filter(Boolean) }; } catch { } }
+  return ipList.list;
+}
+const clientIp = req => (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+async function ipGate(req, res, next) {
+  const list = await allowedIps();
+  if (!list.length || list.includes(clientIp(req))) return next();
+  res.status(403).send(page("Not allowed", `<div class="panel" style="max-width:520px;margin:40px auto"><h1>Access from this network isn't allowed</h1><p>Staff access is limited to approved internet connections. Your address is ${esc(clientIp(req))}. Ask an administrator to add it.</p></div>`, { bare: true }));
+}
 function requireAuth(req, res, next) {
   if (validSession(cookies(req).s)) return next();
   res.redirect("/login");
@@ -185,6 +261,39 @@ async function initDb() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS plan_note TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS pay_method TEXT;
     ${require("./esign").INIT_SQL}
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS vulnerable BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS vulnerable_note TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS hmrc_name TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS prev_names TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS prev_address TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS born_uk TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS outside_uk TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS other_cb TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS working_caring TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS children JSONB;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS marriage_date DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS partner_death_date DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS partner_self_employed TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS hrp_years JSONB;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS claim_types TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS sp_start_year INT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS ip TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS user_agent TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS referrer TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS utm TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS email_bad BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS phone_bad BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS hmrc_verified BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS soa_sent_at DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS dwp_sent_at DATE;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS paper_requested BOOLEAN NOT NULL DEFAULT false;
+    ALTER TABLE activity ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ;
+    CREATE TABLE IF NOT EXISTS files (
+      id SERIAL PRIMARY KEY, lead_id INT NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      at TIMESTAMPTZ NOT NULL DEFAULT now(), kind TEXT NOT NULL, name TEXT NOT NULL, mime TEXT, size INT, data BYTEA NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS files_lead_idx ON files(lead_id);
+    CREATE INDEX IF NOT EXISTS leads_ip_idx ON leads(ip);
     UPDATE leads SET kyc = 'passed' WHERE kyc = 'pending' AND signed_at IS NOT NULL AND stage = ANY(ARRAY['preparing','submitted','decision','invoiced','paid']);
   `);
 }
@@ -244,6 +353,8 @@ ${opts.bare ? "" : `<header><strong>${esc(BRAND)} CRM</strong><nav>
 <a href="/" class="${opts.nav === "board" ? "on" : ""}">Pipeline</a>
 <a href="/today" class="${opts.nav === "today" ? "on" : ""}">Today</a>
 <a href="/money" class="${opts.nav === "money" ? "on" : ""}">Fees</a>
+<a href="/post" class="${opts.nav === "post" ? "on" : ""}">Post</a>
+<a href="/complaints" class="${opts.nav === "complaints" ? "on" : ""}">Complaints</a>
 <a href="/closed" class="${opts.nav === "closed" ? "on" : ""}">Closed</a>
 <a href="/new" class="${opts.nav === "new" ? "on" : ""}">Add enquiry</a>
 <a href="/export.csv">Export</a>
@@ -259,6 +370,11 @@ function flags(r) {
   if (r.ni_number && !validNi(r.ni_number)) f.push(`<span class="pill bad">Check NI number</span>`);
   if (r.signed_at && r.kyc !== "passed") f.push(`<span class="pill ${r.kyc === "failed" ? "bad" : ""}">ID: ${esc(KYC[r.kyc] || r.kyc)}</span>`);
   if (r.signed_at && r.partner_unknown && !r.partner_name) f.push(`<span class="pill">Partner details not known</span>`);
+  if (r.vulnerable) f.push(`<span class="pill bad">Vulnerable</span>`);
+  if (r.email_bad) f.push(`<span class="pill bad">Email bouncing</span>`);
+  if (r.phone_bad) f.push(`<span class="pill bad">Phone not working</span>`);
+  if (r.paper_requested) f.push(`<span class="pill">Wants paper</span>`);
+  if (r.owner) f.push(`<span class="pill">${esc(r.owner)}</span>`);
   return f.join(" ");
 }
 function dueBadge(d) {
@@ -282,7 +398,7 @@ app.use("/api", express.json({ limit: "20kb" }));
 
 app.get("/healthz", (req, res) => res.send("ok"));
 
-const ES = require("./esign")({ pool, log, page, esc, fmtDate, iso, today, addDays, validNi, requestYears, sendEmail, BRAND, PHONE, SESSION_SECRET, clip });
+const ES = require("./esign")({ pool, log, page, esc, fmtDate, iso, today, addDays, validNi, requestYears, sendEmail, BRAND, PHONE, SESSION_SECRET, clip, claimSummary });
 if (!pool || !ADMIN_PASSWORD) {
   app.use((req, res) => res.status(503).send(page("Setup needed", `<div class="panel"><h1>Almost ready</h1>
   <p>Add these settings in Render, under this service's <b>Environment</b> tab, then the CRM will start:</p>
@@ -328,6 +444,9 @@ app.post("/api/leads", async (req, res) => {
     await log(id, "created", "Enquiry received from " + f.source + (f.consent ? ", consent to contact given" : ""));
     if (f.cb === "partner") await log(id, "check", "Child Benefit was paid to the partner: HRP went to the partner, so the partner would need to claim. Check before going further.");
     if (f.ni_number && !validNi(f.ni_number)) await log(id, "check", "NI number given doesn't look valid: confirm it on the call.");
+    const ipAddr = (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+    await pool.query("UPDATE leads SET ip=$2, user_agent=$3, referrer=$4, utm=$5 WHERE id=$1", [id, ipAddr || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null]);
+    f.ip = ipAddr;
     await findDuplicate(id, f);
     sendEmail(f.email, `${BRAND}: we've received your State Pension check`,
       `Dear ${f.title ? f.title + " " : ""}${f.last_name},\n\nThank you for completing our State Pension check. Your reference is ${id}. One of our team will call you within one working day${f.best_time ? " (" + f.best_time.toLowerCase() + ")" : ""} to go through your answers.\n\nThere is nothing to pay and no obligation. Receiving Child Benefit doesn't automatically mean you're owed anything: we only make a claim if your HMRC and DWP records show one is supported. You can also apply to HMRC yourself for free.\n\nIf you have any questions, call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
@@ -379,6 +498,7 @@ app.post("/status", async (req, res) => {
 ES.publicRoutes(app);
 
 /* login */
+app.use("/login", (req, res, next) => ipGate(req, res, next));
 app.get("/login", (req, res) => res.send(page("Log in", `<form class="panel" method="post" action="/login" style="max-width:360px;margin:40px auto">
 <h1>${esc(BRAND)} CRM</h1>${req.query.e ? `<p class="pill bad">That password didn't match. Try again.</p>` : ""}
 <label>Password <input type="password" name="password" autocomplete="current-password" required autofocus></label>
@@ -395,6 +515,7 @@ app.post("/login", (req, res) => {
 });
 app.get("/logout", (req, res) => { res.set("Set-Cookie", "s=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0"); res.redirect("/login"); });
 
+app.use((req, res, next) => ipGate(req, res, next));
 app.use(requireAuth);
 app.use(sameOrigin);
 ES.staffRoutes(app);
@@ -498,6 +619,13 @@ app.get("/lead/:id", async (req, res) => {
   const L = await getLead(req.params.id); if (!L) return res.status(404).send(page("Not found", "<p>No such client.</p>"));
   const acts = (await pool.query("SELECT * FROM activity WHERE lead_id=$1 ORDER BY at DESC", [L.id])).rows;
   const esignPanel = await ES.leadPanel(L);
+  const signedPack = (await pool.query("SELECT signer_name FROM sign_requests WHERE lead_id=$1 AND kind='pack' AND status='signed' ORDER BY id DESC LIMIT 1", [L.id])).rows[0];
+  const V = validation(L, signedPack ? signedPack.signer_name : null);
+  const files = (await pool.query("SELECT id, kind, name, size, at FROM files WHERE lead_id=$1 ORDER BY at DESC", [L.id])).rows;
+  const cr = cbRange(L), hm = hrpMap(L), audit = hrpAudit(L), ftSet = new Set(parseYears(L.ft_years));
+  const ks = kids(L); while (ks.length < 7) ks.push({});
+  const types = new Set(String(L.claim_types || "").split(",").filter(Boolean));
+  const stIcon = st => st === "ok" ? `<span class="pill good">Pass</span>` : st === "bad" ? `<span class="pill bad">Fail</span>` : `<span class="pill">Missing</span>`;
   const fee = L.fee != null ? Number(L.fee) : null, vat = L.vat != null ? Number(L.vat) : null;
   const net = L.arrears != null ? Number(L.arrears) - Number(L.deductions || 0) : null;
   const coolingEnds = L.signed_at ? addDays(iso(L.signed_at), 14) : null;
@@ -511,6 +639,11 @@ app.get("/lead/:id", async (req, res) => {
     <div><h1>${esc(L.title)} ${esc(L.first_name)} ${esc(L.last_name)}</h1><span class="muted">Ref ${L.id} · received ${fmtDate(iso(L.created_at))} · via ${esc(L.source)}</span></div>
     <span>${L.is_test ? `<span class="pill bad">Test data</span> ` : ""}${L.dup_of ? `<a class="pill bad" href="/lead/${L.dup_of}">Possible duplicate of ref ${L.dup_of}</a> ` : ""}<span class="pill">${esc(STAGE[L.stage]?.group)}: ${esc(STAGE[L.stage]?.label)}</span></span>
   </div>
+  <form class="panel" method="post" action="/lead/${L.id}/header" style="display:flex;gap:14px;flex-wrap:wrap;align-items:end;padding:12px 16px${L.vulnerable ? ";border-color:var(--bad)" : ""}">
+    <label>Owner <input name="owner" value="${esc(L.owner)}" placeholder="Agent name" size="14"></label>
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="vulnerable" value="1" ${L.vulnerable ? "checked" : ""}> Vulnerable client</label>
+    <label style="flex:1 1 260px">Vulnerability notes and adjustments <input name="vulnerable_note" value="${esc(L.vulnerable_note)}" placeholder="e.g. hard of hearing: post everything, call daughter first" style="width:100%"></label>
+    <button class="btn ghost">Save</button></form>
   <div class="grid2">
     <div style="display:grid;gap:18px">
       <form class="panel" method="post" action="/lead/${L.id}/stage">
@@ -540,11 +673,70 @@ app.get("/lead/:id", async (req, res) => {
       <div class="panel"><h2>History</h2><div class="log">${acts.map(a => `<div><small>${new Date(a.at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${esc(a.kind)}</small><br>${esc(a.text)}</div>`).join("")}</div></div>
     </div>
     <div style="display:grid;gap:18px">
+      <div class="panel"><h2>Checks at sign-up</h2>
+        <p class="muted" style="margin:0">Wrong details at sign-up cause rejected forms later. Fix anything marked Fail or Missing before sending the pack.</p>
+        <table><tbody>${V.map(v => `<tr><td>${esc(v.label)}</td><td>${stIcon(v.st)}</td><td class="muted">${esc(v.msg)}</td></tr>`).join("")}</tbody></table>
+        <form method="post" action="/lead/${L.id}/verify-hmrc" style="margin:0"><label style="display:flex;gap:8px;align-items:center;font-weight:500"><input type="checkbox" name="v" value="1" ${L.hmrc_verified ? "checked" : ""} onchange="this.form.submit()"> Name, date of birth, NI number and address match what HMRC holds</label></form></div>
       ${esignPanel}
       <div class="panel"><h2>Contact</h2><dl>
         <dt>Phone</dt><dd class="num">${esc(L.phone)}</dd><dt>Email</dt><dd>${esc(L.email)}</dd>
         <dt>Best time</dt><dd>${esc(L.best_time)}</dd><dt>Maiden name</dt><dd>${esc(L.maiden_name)}</dd>
-        <dt>Consent</dt><dd>${L.consent ? "Yes" : "No"}${L.consent_text ? `<br><small class="muted">${esc(L.consent_text)}</small>` : ""}</dd></dl></div>
+        <dt>Consent</dt><dd>${L.consent ? "Yes" : "No"}${L.consent_text ? `<br><small class="muted">${esc(L.consent_text)}</small>` : ""}</dd>
+        ${L.ip || L.referrer || L.utm ? `<dt>Source</dt><dd><small>${L.ip ? `IP ${esc(L.ip)}` : ""}${L.utm ? `<br>${esc(L.utm)}` : ""}${L.referrer ? `<br>From ${esc(L.referrer)}` : ""}${L.user_agent ? `<br><span class="muted">${esc(L.user_agent.slice(0, 90))}</span>` : ""}</small></dd>` : ""}</dl>
+        <form method="post" action="/lead/${L.id}/contact-flags" style="display:flex;gap:14px;flex-wrap:wrap;margin:0">
+          <label style="display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" name="email_bad" value="1" ${L.email_bad ? "checked" : ""}> Email bouncing</label>
+          <label style="display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" name="phone_bad" value="1" ${L.phone_bad ? "checked" : ""}> Phone or texts not working</label>
+          <button class="btn ghost" style="padding:4px 10px">Save</button></form></div>
+      <form class="panel" method="post" action="/lead/${L.id}/details">
+        <h2>Client details</h2>
+        <div class="grid2">
+          <label>Name as HMRC holds it <input name="hmrc_name" value="${esc(L.hmrc_name)}" placeholder="e.g. Margaret Ann Lee"></label>
+          <label>Previous names (up to 3) <input name="prev_names" value="${esc(L.prev_names)}" placeholder="e.g. Price; Doyle"></label>
+          <label>Previous address <input name="prev_address" value="${esc(L.prev_address)}"></label>
+          <label>Born in the UK <select name="born_uk"><option value=""></option>${opt({ yes: "Yes", no: "No" }, L.born_uk)}</select></label>
+          <label>Time living outside the UK <input name="outside_uk" value="${esc(L.outside_uk)}" placeholder="e.g. Australia 1975 to 1979"></label>
+          <label>Anyone else claim Child Benefit for these children? <input name="other_cb" value="${esc(L.other_cb)}"></label>
+          <label>Working while caring <input name="working_caring" value="${esc(L.working_caring)}" placeholder="e.g. part time 1985 to 1990"></label>
+          <label>State Pension started (year) <input name="sp_start_year" inputmode="numeric" value="${L.sp_start_year ?? ""}"></label>
+        </div>
+        <h3 style="font-size:1rem">Children (up to 7)</h3>
+        <div class="tablewrap"><table><thead><tr><th>Name</th><th>Date of birth</th><th>Father's name</th></tr></thead><tbody>
+        ${ks.slice(0, 7).map((c, i) => `<tr><td><input name="c${i}_name" value="${esc(c.name)}" style="width:100%"></td><td><input type="date" name="c${i}_dob" value="${esc(c.dob)}"></td><td><input name="c${i}_father" value="${esc(c.father)}" style="width:100%"></td></tr>`).join("")}
+        </tbody></table></div>
+        <h3 style="font-size:1rem">Husband, wife or civil partner (for uplift claims)</h3>
+        <div class="grid2">
+          <label>Date of marriage or civil partnership <input type="date" name="marriage_date" value="${iso(L.marriage_date)}"></label>
+          <label>Partner's date of death (if widowed) <input type="date" name="partner_death_date" value="${iso(L.partner_death_date)}"></label>
+          <label>Partner self-employed 2015 to 2024? <select name="partner_self_employed"><option value=""></option>${opt({ yes: "Yes", no: "No", unsure: "Not sure" }, L.partner_self_employed)}</select></label>
+        </div>
+        <h3 style="font-size:1rem">Claim types</h3>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">${Object.entries(CLAIM_TYPES).map(([k, v]) => `<label style="display:flex;gap:6px;align-items:center;font-weight:500"><input type="checkbox" name="ct_${k}" value="1" ${types.has(k) ? "checked" : ""}> ${esc(v)}</label>`).join("")}</div>
+        <button>Save client details</button>
+      </form>
+      <form class="panel" method="post" action="/lead/${L.id}/hrp" id="hrpform">
+        <h2>HRP by tax year</h2>
+        <p class="muted" style="margin:0">Record what HMRC's NI statement shows for each year. Tap a year to cycle: not checked → HRP present → HRP missing → NI paid. ${cr ? `Child Benefit years: ${esc(yearRanges(Array.from({ length: Math.max(0, Math.min(2009, cr[1]) - Math.max(1978, cr[0]) + 1) }, (_, i) => Math.max(1978, cr[0]) + i)))}.` : "Add children's dates of birth to highlight the Child Benefit years."}</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:6px" id="hrpchips">
+        ${Array.from({ length: 32 }, (_, i) => 1978 + i).map(y => { const st = hm[y] || ""; const inCb = cr && y >= cr[0] && y <= cr[1]; return `<button type="button" class="hy" data-y="${y}" data-st="${st}" style="padding:6px 4px;border-radius:8px;font-size:.85rem;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;border:2px solid ${inCb ? "var(--accent)" : "var(--line)"};${ftSet.has(y) ? "text-decoration:underline dotted;" : ""}">${ty(y)}<br><small class="lbl"></small></button>`; }).join("")}
+        </div>
+        <input type="hidden" name="hrp" id="hrpval" value="${esc(JSON.stringify(hm))}">
+        ${audit ? `<p class="pill ${audit.kind === "due" ? "good" : audit.kind === "conflict" ? "bad" : ""}" style="justify-self:start">${esc(audit.text)}</p>` : ""}
+        <small class="muted">Purple border: Child Benefit year. Dotted underline: client said full time.</small>
+        <button>Save HRP years</button>
+        <script>(function(){var order=["","present","missing","paid"],lab={"":"",present:"HRP present",missing:"HRP missing",paid:"NI paid"},col={"":"var(--bg)",present:"var(--good-tint)",missing:"var(--bad-tint)",paid:"var(--tint)"};
+          var val=JSON.parse(document.getElementById("hrpval").value||"{}");
+          document.querySelectorAll("#hrpchips .hy").forEach(function(b){function paint(){var s=b.dataset.st;b.style.background=col[s];b.querySelector(".lbl").textContent=lab[s];}paint();
+            b.onclick=function(){var s=order[(order.indexOf(b.dataset.st)+1)%order.length];b.dataset.st=s;if(s)val[b.dataset.y]=s;else delete val[b.dataset.y];document.getElementById("hrpval").value=JSON.stringify(val);paint();};});})();</script>
+      </form>
+      <div class="panel"><h2>Files</h2>
+        ${files.length ? `<table><tbody>${files.map(f => `<tr><td><a href="/file/${f.id}">${esc(f.name)}</a><br><small class="muted">${esc(FILE_KINDS[f.kind] || f.kind)} · ${Math.max(1, Math.round(f.size / 1024))} KB · ${fmtDate(iso(f.at))}</small></td></tr>`).join("")}</tbody></table>` : `<p class="muted" style="margin:0">No files yet.</p>`}
+        <form id="upform" style="display:flex;gap:8px;flex-wrap:wrap;align-items:end">
+          <label>Type <select id="upkind">${opt(FILE_KINDS, "")}</select></label>
+          <label>File <input type="file" id="upfile" accept=".pdf,.jpg,.jpeg,.png,.heic,.doc,.docx"></label>
+          <button type="submit">Upload</button><span id="upmsg" class="muted"></span></form>
+        <script>document.getElementById("upform").addEventListener("submit",function(e){e.preventDefault();var f=document.getElementById("upfile").files[0],m=document.getElementById("upmsg");if(!f){m.textContent="Choose a file first";return;}if(f.size>10*1024*1024){m.textContent="Files must be under 10 MB";return;}
+          m.textContent="Uploading…";var r=new FileReader();r.onload=function(){fetch("/lead/${L.id}/files",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:document.getElementById("upkind").value,name:f.name,mime:f.type,data:String(r.result).split(",")[1]})}).then(function(x){return x.json();}).then(function(j){if(j.ok)location.reload();else m.textContent=j.error||"Upload failed";}).catch(function(){m.textContent="Upload failed";});};r.readAsDataURL(f);});</script>
+      </div>
       <div class="panel"><h2>Check answers</h2><dl>
         <dt>Who for</dt><dd>${esc(label("for_whom", L.for_whom))}</dd>
         <dt>Child Benefit 1978–2010</dt><dd>${esc(label("cb", L.cb))}</dd>
@@ -680,6 +872,198 @@ app.post("/lead/:id/reminder", async (req, res) => {
   res.redirect(req.body.back === "money" ? "/money?ok=" + encodeURIComponent(`Reminder ${n} logged for ${L.first_name} ${L.last_name}.`) : "/lead/" + L.id + "?ok=1");
 });
 
+app.post("/lead/:id/header", async (req, res) => {
+  const L = await getLead(req.params.id); if (!L) return res.redirect("/");
+  const vul = req.body.vulnerable === "1", owner = clip(req.body.owner, 60) || null, note = clip(req.body.vulnerable_note, 500) || null;
+  await pool.query("UPDATE leads SET owner=$2, vulnerable=$3, vulnerable_note=$4, updated_at=now() WHERE id=$1", [L.id, owner, vul, note]);
+  if (vul !== L.vulnerable) await log(L.id, "check", vul ? "Marked as a vulnerable client" + (note ? ": " + note : "") : "Vulnerable flag removed");
+  if (owner !== (L.owner || null)) await log(L.id, "owner", owner ? `Assigned to ${owner}` : "Owner removed");
+  res.redirect("/lead/" + L.id + "?ok=1");
+});
+app.post("/lead/:id/verify-hmrc", async (req, res) => {
+  const v = req.body.v === "1";
+  await pool.query("UPDATE leads SET hmrc_verified=$2, updated_at=now() WHERE id=$1", [req.params.id, v]);
+  await log(req.params.id, "check", v ? "Client details confirmed as matching HMRC's records" : "HMRC details check cleared");
+  res.redirect("/lead/" + req.params.id + "?ok=1");
+});
+app.post("/lead/:id/contact-flags", async (req, res) => {
+  const L = await getLead(req.params.id); if (!L) return res.redirect("/");
+  const e = req.body.email_bad === "1", p = req.body.phone_bad === "1";
+  await pool.query("UPDATE leads SET email_bad=$2, phone_bad=$3, updated_at=now() WHERE id=$1", [L.id, e, p]);
+  if (e !== L.email_bad) await log(L.id, "check", e ? "Email marked as bouncing" : "Email marked as working");
+  if (p !== L.phone_bad) await log(L.id, "check", p ? "Phone or texts marked as not working" : "Phone marked as working");
+  res.redirect("/lead/" + L.id + "?ok=1");
+});
+app.post("/lead/:id/details", async (req, res) => {
+  const L = await getLead(req.params.id); if (!L) return res.redirect("/");
+  const b = req.body, dt = v => /^\d{4}-\d{2}-\d{2}$/.test(v || "") ? v : null;
+  const children = [];
+  for (let i = 0; i < 7; i++) { const c = { name: clip(b[`c${i}_name`], 80), dob: dt(b[`c${i}_dob`]) || "", father: clip(b[`c${i}_father`], 80) }; if (c.name || c.dob) children.push(c); }
+  children.sort((a, c) => (a.dob || "9999").localeCompare(c.dob || "9999"));
+  const types = Object.keys(CLAIM_TYPES).filter(k => b["ct_" + k] === "1").join(",") || null;
+  const spy = parseInt(b.sp_start_year, 10);
+  await pool.query(`UPDATE leads SET hmrc_name=$2, prev_names=$3, prev_address=$4, born_uk=$5, outside_uk=$6, other_cb=$7, working_caring=$8, children=$9, marriage_date=$10, partner_death_date=$11, partner_self_employed=$12, claim_types=$13, sp_start_year=$14, updated_at=now() WHERE id=$1`,
+    [L.id, clip(b.hmrc_name, 120) || null, clip(b.prev_names, 200) || null, clip(b.prev_address, 300) || null, clip(b.born_uk, 5) || null, clip(b.outside_uk, 200) || null, clip(b.other_cb, 200) || null, clip(b.working_caring, 200) || null,
+     children.length ? JSON.stringify(children) : null, dt(b.marriage_date), dt(b.partner_death_date), clip(b.partner_self_employed, 10) || null, types, spy >= 1990 && spy <= 2040 ? spy : null]);
+  if (clip(b.other_cb, 200) && clip(b.other_cb, 200) !== (L.other_cb || "")) await log(L.id, "check", "Someone else may have claimed Child Benefit: " + clip(b.other_cb, 200) + ". HRP goes to the person paid the Child Benefit.");
+  if (clip(b.outside_uk, 200) && clip(b.outside_uk, 200) !== (L.outside_uk || "")) await log(L.id, "check", "Time outside the UK: " + clip(b.outside_uk, 200) + ". Check those years separately.");
+  await log(L.id, "case", "Client details updated");
+  res.redirect("/lead/" + L.id + "?ok=1");
+});
+app.post("/lead/:id/hrp", async (req, res) => {
+  const L = await getLead(req.params.id); if (!L) return res.redirect("/");
+  let m = {}; try { m = JSON.parse(req.body.hrp || "{}"); } catch { }
+  const clean = {}; for (const [y, v] of Object.entries(m)) if (Number(y) >= 1978 && Number(y) <= 2009 && ["present", "missing", "paid"].includes(v)) clean[y] = v;
+  await pool.query("UPDATE leads SET hrp_years=$2, updated_at=now() WHERE id=$1", [L.id, Object.keys(clean).length ? JSON.stringify(clean) : null]);
+  const a = hrpAudit({ ...L, hrp_years: clean });
+  await log(L.id, "hmrc", a ? "HRP years recorded. " + a.text : "HRP years cleared");
+  if (a && a.kind === "due" && L.stage === "preparing") await pool.query("UPDATE leads SET next_action='HRP due: prepare the CF411 declaration', next_action_date=current_date WHERE id=$1", [L.id]);
+  if (a && a.kind === "notdue" && L.stage === "preparing") await pool.query("UPDATE leads SET next_action='HRP not due: check DWP evidence, then close or look at uplifts', next_action_date=current_date WHERE id=$1", [L.id]);
+  res.redirect("/lead/" + L.id + "?ok=1");
+});
+app.post("/lead/:id/files", express.json({ limit: "15mb" }), async (req, res) => {
+  const L = await getLead(req.params.id); if (!L) return res.status(404).json({ ok: false });
+  const b = req.body || {}, kind = FILE_KINDS[b.kind] ? b.kind : "other", data = String(b.data || "");
+  if (!/^[A-Za-z0-9+/=]+$/.test(data) || !data.length) return res.status(400).json({ ok: false, error: "That file couldn't be read" });
+  const size = Math.floor(data.length * 3 / 4);
+  if (size > 10 * 1024 * 1024) return res.status(400).json({ ok: false, error: "Files must be under 10 MB" });
+  const name = clip(b.name, 160).replace(/[^\w .()-]/g, "_") || "file";
+  await pool.query("INSERT INTO files(lead_id,kind,name,mime,size,data) VALUES($1,$2,$3,$4,$5,decode($6,'base64'))", [L.id, kind, name, clip(b.mime, 80) || "application/octet-stream", size, data]);
+  await log(L.id, "file", `Uploaded ${FILE_KINDS[kind]}: ${name}`);
+  if (kind === "reject648") { await pool.query("UPDATE leads SET stage=CASE WHEN stage = ANY($2) THEN stage ELSE 'resubmit_648' END, next_action='64-8 rejected: fix and resubmit', next_action_date=current_date, updated_at=now() WHERE id=$1", [L.id, DONE]); await log(L.id, "hmrc", "64-8 rejected by HMRC: moved to resubmit"); }
+  if (kind === "arrears") await pool.query("UPDATE leads SET next_action='DWP arrears letter uploaded: enter the arrears and tick the letter', next_action_date=current_date WHERE id=$1", [L.id]);
+  if (kind === "soa") await pool.query("UPDATE leads SET next_action='NI statement received: record HRP for each tax year', next_action_date=current_date WHERE id=$1", [L.id]);
+  res.json({ ok: true });
+});
+app.get("/file/:fid", async (req, res) => {
+  const f = (await pool.query("SELECT lead_id, name, mime, encode(data,'base64') AS b64 FROM files WHERE id=$1", [req.params.fid])).rows[0];
+  if (!f) return res.status(404).send("Not found");
+  await log(f.lead_id, "file", `Opened file: ${f.name}`);
+  res.set("Content-Type", f.mime || "application/octet-stream");
+  res.set("Content-Disposition", `inline; filename="${f.name.replace(/"/g, "")}"`);
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Content-Security-Policy", "sandbox");
+  res.send(Buffer.from(f.b64, "base64"));
+});
+
+/* print and post: HMRC and DWP paperwork goes by post, so batch it */
+const HMRC_ADDR_DEFAULT = "National Insurance Contributions and Employer Office\nHM Revenue and Customs\nBX9 1AN";
+const BATCHES = {
+  soa: { title: "NI record requests (SoA) to HMRC", hint: "Clients invited to share their NI record who haven't after 7 days, and 64-8 resubmissions." },
+  dwp: { title: "DWP information requests", hint: "Signed, ID checked, DWP request not yet posted." },
+  cf411: { title: "CF411 claims to HMRC", hint: "CF411 declaration signed, claim not yet posted. Attach the official CF411 completed with the same details." },
+  paper: { title: "Paper packs to clients", hint: "Clients who asked to sign on paper." }
+};
+async function batchRows(kind) {
+  if (kind === "soa") return (await pool.query(`SELECT * FROM leads WHERE stage IN ('ni_wait','resubmit_648') ORDER BY next_action_date NULLS LAST, id`)).rows;
+  if (kind === "dwp") return (await pool.query(`SELECT * FROM leads WHERE signed_at IS NOT NULL AND kyc='passed' AND dwp_sent_at IS NULL AND stage <> ALL(${DONE_SQL}) AND stage NOT IN ('new','contacted','qualified','pack_sent','resign','signed') ORDER BY id`)).rows;
+  if (kind === "cf411") return (await pool.query(`SELECT l.* FROM leads l WHERE l.submitted_at IS NULL AND l.stage <> ALL(${DONE_SQL}) AND EXISTS (SELECT 1 FROM sign_requests r WHERE r.lead_id=l.id AND r.kind='cf411' AND r.status='signed') ORDER BY l.id`)).rows;
+  if (kind === "paper") return (await pool.query(`SELECT * FROM leads WHERE paper_requested AND stage <> ALL(${DONE_SQL}) ORDER BY id`)).rows;
+  return [];
+}
+const toIds = v => [].concat(v || []).join(",").split(",").map(Number).filter(n => n > 0);
+app.get("/post", async (req, res) => {
+  const sections = [];
+  for (const [k, B] of Object.entries(BATCHES)) {
+    const rows = await batchRows(k);
+    const ready = r => k !== "soa" || r.stage === "resubmit_648" || !r.next_action_date || iso(r.next_action_date) <= today();
+    sections.push(`<form class="panel" method="get" action="/post/${k}/print" target="_blank"><h2>${esc(B.title)} <span class="pill">${rows.length}</span></h2><p class="muted" style="margin:0">${esc(B.hint)}</p>
+      ${rows.length ? `<div class="tablewrap"><table><thead><tr><th></th><th>Client</th><th>Stage</th><th>Details</th></tr></thead><tbody>${rows.map(r => `<tr><td><input type="checkbox" name="id" value="${r.id}" ${ready(r) ? "checked" : ""}></td><td><a href="/lead/${r.id}">${esc(r.first_name)} ${esc(r.last_name)}</a> ${flags(r)}</td><td>${esc(STAGE[r.stage]?.label)}</td>
+        <td class="muted">${k === "soa" ? (r.stage === "resubmit_648" ? "64-8 resubmit" : ready(r) ? "Ready: 7 days passed" : "Waiting for client until " + fmtDate(iso(r.next_action_date))) + (requestYears(r) ? ` · ${requestYears(r).length} tax years` : " · tax years not known") : k === "cf411" ? (hrpDue(r).length ? yearRanges(hrpDue(r)) : "HRP years not recorded") : ""}</td></tr>`).join("")}</tbody></table></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button>Print selected</button><button class="btn ghost" formaction="/post/${k}" formmethod="post" formtarget="_self">Mark selected as posted</button></div>` : `<p class="muted">Nothing waiting.</p>`}</form>`);
+  }
+  res.send(page("Post", `${req.query.done ? `<div class="flash">${esc(req.query.done)}</div>` : ""}<h1>Print and post</h1>
+  <p class="muted">HMRC and DWP paperwork goes by post. Print a batch, post it, then mark it as posted so each case moves on and the chase dates are set.</p>${sections.join("")}`, { nav: "post" }));
+});
+app.get("/post/:batch/print", async (req, res) => {
+  const k = req.params.batch; if (!BATCHES[k]) return res.redirect("/post");
+  const ids = toIds(req.query.id || req.query.ids);
+  const F = await ES.settings();
+  const hmrcAddr = F.hmrc_address || HMRC_ADDR_DEFAULT, dwpAddr = F.dwp_address || "[Set the DWP postal address in Settings]";
+  const firm = `${esc(F.company_name || "[company name]")} trading as ${esc(BRAND)}<br>${esc(F.address || "[address]")}<br>${esc(F.phone || PHONE)} · ${esc(F.email || "[email]")}${F.agent_code ? `<br>HMRC agent code ${esc(F.agent_code)}` : ""}`;
+  const letter = (to, L, body) => `<article class="doc"><p style="text-align:right">${firm}</p><p>${esc(to).replace(/\n/g, "<br>")}</p><p>${fmtDate(today())}</p>
+    <p><b>Re: ${esc([L.title, L.first_name, L.last_name].filter(Boolean).join(" "))}, NI number ${esc(fmtNi(L.ni_number) || "[missing]")}, date of birth ${L.dob ? fmtDate(iso(L.dob)) : "[missing]"}</b><br>${esc(L.address || "")} ${esc(L.postcode || "")}${L.hmrc_name ? `<br>Name as held by HMRC: ${esc(L.hmrc_name)}` : ""}${L.prev_names ? `<br>Previous names: ${esc(L.prev_names)}` : ""}</p>${body}<p>Yours faithfully,</p><p>${esc(BRAND)}</p><p class="doc-small">Our reference ${L.id}</p></article>`;
+  const parts = [];
+  for (const id of ids) {
+    const L = await getLead(id); if (!L) continue;
+    if (k === "soa") {
+      const yrs = requestYears(L) || [];
+      parts.push(letter(hmrcAddr, L, `<p>We act for the above client under the enclosed authority. ${L.stage === "resubmit_648" ? "We are resubmitting the client's authority (64-8), corrected as you asked, and repeating our request." : ""} Please send us a statement of the client's National Insurance contributions and credits, including Home Responsibilities Protection, for <b>these tax years only</b>: ${yrs.length ? esc(yearRanges(yrs)) : "<b>[tax years not known: do not send]</b>"}.</p><p>Years in which the client worked full time have been left out.</p>`));
+      const pk = await ES.latest(L.id, "pack", ["signed"]);
+      if (pk) parts.push(ES.docsForPrint(pk, ["hmrc", "nirequest"]));
+    } else if (k === "dwp") {
+      parts.push(letter(dwpAddr, L, `<p>We act for the above client under the enclosed letter of authority. Please send us details of how the client's State Pension was calculated, including any underpayment, arrears and amounts withheld, and any increase based on a husband's, wife's or civil partner's record${L.marriage_date ? ` (married ${fmtDate(iso(L.marriage_date))})` : ""}${L.partner_death_date ? ` (partner died ${fmtDate(iso(L.partner_death_date))})` : ""}.</p>`));
+      const pk = await ES.latest(L.id, "pack", ["signed"]);
+      if (pk) parts.push(ES.docsForPrint(pk, ["dwp"]));
+    } else if (k === "cf411") {
+      parts.push(letter(hmrcAddr, L, `<p>Please find enclosed the client's application for Home Responsibilities Protection (form CF411), with the client's signed declaration and our authority to act.</p><p>${esc(claimSummary(L)).replace(/\n/g, "<br>")}</p>`));
+      const cf = await ES.latest(L.id, "cf411", ["signed"]); if (cf) parts.push(ES.docsForPrint(cf));
+      parts.push(`<article class="doc noprint" style="border:2px dashed var(--bad)"><b>Attach the official CF411 for ${esc(L.first_name)} ${esc(L.last_name)}, completed with the details above.</b></article>`);
+    } else if (k === "paper") {
+      const open = await ES.latest(L.id, "pack", ["sent", "opened"]);
+      parts.push(`<article class="doc"><p style="text-align:right">${firm}</p><p>${esc([L.title, L.first_name, L.last_name].filter(Boolean).join(" "))}<br>${esc(L.address || "[address]")}<br>${esc(L.postcode || "")}</p><p>${fmtDate(today())}</p>
+        <p>Dear ${esc(L.title || "")} ${esc(L.last_name)},</p><p>As you asked, here are paper copies of your documents. Please read each one, sign and date where shown, and return them in the prepaid envelope. Everything has been filled in for you; please don't change anything. If something is wrong, call us and we'll send a corrected copy.</p>
+        <p>You can cancel within 14 days of signing and pay nothing, even if we've started work. Questions? Call us free on ${esc(F.phone || PHONE)}, weekdays 9am to 5pm.</p><p>Yours sincerely,</p><p>${esc(BRAND)}</p></article>`);
+      if (open) parts.push(ES.docsForPrint(open, null, true)); else parts.push(`<article class="doc noprint" style="border:2px dashed var(--bad)"><b>No open sign-up pack for ${esc(L.first_name)} ${esc(L.last_name)}. Prepare one on their record first.</b></article>`);
+    }
+  }
+  res.send(page("Print batch", `<style>${ES.DOC_CSS}</style><div class="noprint" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h1>${esc(BATCHES[k].title)}: ${ids.length} client${ids.length === 1 ? "" : "s"}</h1><button onclick="window.print()">Print</button></div>${parts.join("") || "<p>Nothing selected.</p>"}`, { bare: true }));
+});
+app.post("/post/:batch", async (req, res) => {
+  const k = req.params.batch; if (!BATCHES[k]) return res.redirect("/post");
+  const ids = toIds(req.body.id || req.body.ids); let n = 0;
+  for (const id of ids) {
+    const L = await getLead(id); if (!L) continue;
+    if (k === "soa") {
+      const yrs = requestYears(L) || [];
+      await pool.query("UPDATE leads SET soa_sent_at=current_date, stage='ni_requested', next_action='Chase HMRC for the NI record', next_action_date=$2, updated_at=now() WHERE id=$1", [id, addDays(today(), 21)]);
+      await log(id, "hmrc", `Posted to HMRC: ${L.stage === "resubmit_648" ? "64-8 resubmitted with " : ""}NI record request for ${yrs.length ? yearRanges(yrs) : "[years not recorded]"}`);
+    } else if (k === "dwp") {
+      await pool.query("UPDATE leads SET dwp_sent_at=current_date, updated_at=now() WHERE id=$1", [id]);
+      await log(id, "dwp", "Posted to DWP: information request with signed letter of authority. Chase in 21 days.");
+    } else if (k === "cf411") {
+      await pool.query("UPDATE leads SET submitted_at=current_date, stage='submitted', next_action='Monthly update to client; chase HMRC if past reply date', next_action_date=$2, updated_at=now() WHERE id=$1", [id, addDays(today(), 30)]);
+      await log(id, "hmrc", `Posted to HMRC: CF411 claim${hrpDue(L).length ? " for " + yearRanges(hrpDue(L)) : ""}`);
+    } else if (k === "paper") {
+      await pool.query("UPDATE leads SET paper_requested=false, next_action='Chase the signed paper pack', next_action_date=$2, updated_at=now() WHERE id=$1", [id, addDays(today(), 10)]);
+      await log(id, "esign", "Paper pack posted to the client");
+    }
+    n++;
+  }
+  res.redirect("/post?done=" + encodeURIComponent(`${n} marked as posted.`));
+});
+
+/* complaints and data requests */
+function workingDays(from, n) { let d = iso(from); let k = 0; while (k < n) { d = addDays(d, 1); const w = new Date(d + "T12:00:00Z").getUTCDay(); if (w !== 0 && w !== 6) k++; } return d; }
+app.get("/complaints", async (req, res) => {
+  const { rows } = await pool.query("SELECT a.*, l.first_name, l.last_name FROM activity a JOIN leads l ON l.id=a.lead_id WHERE a.kind IN ('complaint','data') ORDER BY (a.resolved_at IS NULL) DESC, a.at DESC LIMIT 500");
+  const t = today();
+  res.send(page("Complaints", `<h1>Complaints and data requests</h1>
+  <p class="muted">Logged from the "Add a note" box on a client's record (choose Complaint or Data request). Complaints: acknowledge within 5 working days, final response within 8 weeks. Data requests: respond within one month.</p>
+  <div class="panel tablewrap"><table><thead><tr><th>Received</th><th>Client</th><th>Type</th><th>Details</th><th>Due</th><th></th></tr></thead><tbody>
+  ${rows.map(a => { const due = a.kind === "complaint" ? addDays(iso(a.at), 56) : addDays(iso(a.at), 30); const ack = a.kind === "complaint" ? workingDays(a.at, 5) : null;
+    return `<tr><td>${fmtDate(iso(a.at))}</td><td><a href="/lead/${a.lead_id}">${esc(a.first_name)} ${esc(a.last_name)}</a></td><td>${a.kind === "complaint" ? "Complaint" : "Data request"}</td><td>${esc(a.text)}</td>
+    <td>${a.resolved_at ? `<span class="pill good">Resolved ${fmtDate(iso(a.resolved_at))}</span>` : `${ack ? `<small>Acknowledge by ${fmtDate(ack)}</small><br>` : ""}<span class="due ${due < t ? "over" : ""}">${due < t ? "Overdue: " : "Respond by "}${fmtDate(due)}</span>`}</td>
+    <td>${a.resolved_at ? "" : `<form method="post" action="/activity/${a.id}/resolve"><button class="btn ghost" style="padding:4px 10px">Mark resolved</button></form>`}</td></tr>`; }).join("") || `<tr><td colspan="6" class="muted">None logged.</td></tr>`}
+  </tbody></table></div>`, { nav: "complaints" }));
+});
+app.post("/activity/:aid/resolve", async (req, res) => {
+  const a = (await pool.query("UPDATE activity SET resolved_at=now() WHERE id=$1 AND resolved_at IS NULL RETURNING lead_id, kind", [req.params.aid])).rows[0];
+  if (a) await log(a.lead_id, "note", `${a.kind === "complaint" ? "Complaint" : "Data request"} marked as resolved`);
+  res.redirect("/complaints");
+});
+app.post("/admin/ips", async (req, res) => {
+  const list = String(req.body.staff_ips || "").split(/[\s,]+/).filter(Boolean).slice(0, 50);
+  if (list.length && !list.includes(clientIp(req))) return res.redirect("/admin?done=" + encodeURIComponent(`Not saved: the list must include your own address (${clientIp(req)}), or you'd lock yourself out.`));
+  await pool.query("INSERT INTO settings(key,value) VALUES('staff_ips',$1) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [list.join(", ") || null]);
+  ipList.at = 0;
+  res.redirect("/admin?done=" + encodeURIComponent(list.length ? `Staff access limited to ${list.length} address${list.length > 1 ? "es" : ""}.` : "Staff access allowed from anywhere."));
+});
+app.post("/admin/addresses", async (req, res) => {
+  for (const k of ["hmrc_address", "dwp_address"]) await pool.query("INSERT INTO settings(key,value) VALUES($1,$2) ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value", [k, clip(req.body[k], 400) || null]);
+  res.redirect("/admin?done=" + encodeURIComponent("Postal addresses saved."));
+});
+
 /* settings: test data */
 const FIRST = ["Margaret","Patricia","Susan","Linda","Christine","Janet","Elaine","Carol","Pauline","Barbara","Jean","Sandra","Maureen","Valerie","Brenda","Kathleen","Shirley","Anne","Gillian","Hilary","Lesley","Wendy","Doreen","Rita","Joan","Sheila","Eileen","Marion","Diane","Irene"];
 const LAST = ["Thompson","Hughes","Roberts","Walker","Wright","Robinson","Clarke","Wood","Hall","Green","Lewis","Harrison","Baker","Turner","Hill","Cooper","Ward","Morris","Moore","Jackson","Allen","Kelly","Bennett","Holmes","Shaw","Lloyd","Mason","Marshall","Fletcher","Bailey"];
@@ -703,9 +1087,13 @@ const NOTES = {
   paid: ["Fee received in full. Review request sent."],
   closed_none: ["HMRC record already includes HRP for all Child Benefit years. Nothing owed. Client thanked us."],
   closed_withdrawn: ["Client cancelled 6 days after signing. No fee payable."],
-  closed_lost: ["Client decided to claim directly with HMRC."]
+  closed_lost: ["Client decided to claim directly with HMRC."],
+  resubmit_648: ["HMRC rejected the 64-8: signature date missing. Corrected version signed."],
+  uplift_dwp: ["Widowed uplift claim sent to DWP with death certificate details."],
+  closed_ineligible: ["Child Benefit was paid to her husband, not her. Explained the partner would need to claim."],
+  closed_duplicate: ["Same person as an earlier enquiry from her son. Closed this one."]
 };
-const PLAN = [["new",4],["contacted",2],["qualified",2],["pack_sent",2],["resign",1],["signed",2],["ni_wait",2],["ni_requested",2],["dwp_requested",2],["preparing",2],["cf411_sent",1],["submitted",4],["decision",2],["invoiced",2],["payment_plan",1],["on_hold",1],["paid",2],["closed_none",1],["closed_withdrawn",1],["closed_lost",1]];
+const PLAN = [["new",4],["contacted",2],["qualified",2],["pack_sent",2],["resign",1],["signed",2],["ni_wait",2],["ni_requested",2],["dwp_requested",2],["preparing",2],["cf411_sent",1],["submitted",4],["decision",2],["invoiced",2],["payment_plan",1],["on_hold",1],["paid",2],["resubmit_648",1],["uplift_dwp",1],["closed_none",1],["closed_withdrawn",1],["closed_lost",1],["closed_ineligible",1],["closed_duplicate",1]];
 async function seedTestData() {
   let n = 0; const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1)); const pick = a => a[rnd(0, a.length - 1)];
   const at = id => ORDER.indexOf(id);
@@ -717,7 +1105,7 @@ async function seedTestData() {
       const created = addDays(today(), -ageDays);
       const fn = FIRST[(n * 7) % FIRST.length], ln = LAST[(n * 11 + 3) % LAST.length];
       const born = rnd(1938, 1958), pension = stage === "closed_none" ? "less" : pick(["less", "less", "less", "unsure"]);
-      const kid1 = born + rnd(20, 30), kid2 = kid1 + rnd(0, 7);
+      const kid1 = Math.max(born + rnd(20, 30), rnd(1974, 1982)), kid2 = kid1 + rnd(0, 7);
       const ftc = pick(["no", "no", "some", "unsure"]);
       const fty = ftc === "some" ? [kid1 - 2, kid1 - 1, kid2 + 12, kid2 + 13].filter(y => y >= 1978 && y <= 2009).join(",") || null : null;
       const signed = pos >= at("signed") ? (stage === "closed_withdrawn" ? addDays(today(), -rnd(4, 7)) : addDays(created, rnd(3, 8))) : null;
@@ -747,7 +1135,24 @@ async function seedTestData() {
          pos >= at("signed") && !partnerUnknown ? pick(["Mr ", "Mr ", "Mr "]) + pick(["John", "David", "Michael", "Peter", "Brian", "Alan"]) + " " + ln : null,
          partnerUnknown ? "Separated in the 1980s, no contact" : null]);
       const id = r.rows[0].id;
+      const kidNames = ["Sarah", "James", "Emma", "Daniel", "Claire", "Mark", "Louise", "Paul"];
+      const children = [{ name: pick(kidNames) + " " + ln, dob: `${kid1}-03-14`, father: "John " + ln }];
+      if (kid2 !== kid1) children.push({ name: pick(kidNames) + " " + ln, dob: `${kid2}-09-02`, father: "John " + ln });
+      let hrp = null;
+      if (pos >= at("preparing") || stage === "closed_none") {
+        hrp = {}; const ftS = new Set(String(fty || "").split(",").map(Number));
+        for (let y = Math.max(1978, kid1); y <= Math.min(2009, kid2 + 15); y++) hrp[y] = ftS.has(y) ? "paid" : stage === "closed_none" ? "present" : (y >= Math.max(1978, kid1) + 1 && y <= Math.max(1978, kid1) + 8 ? "missing" : "present");
+      }
+      const types = ["hrp"].concat(stage === "uplift_dwp" ? ["widowed"] : Math.random() < 0.25 ? ["married"] : []).join(",");
+      await pool.query(`UPDATE leads SET children=$2, hrp_years=$3, owner=$4, vulnerable=$5, vulnerable_note=$6, dob=$7, address=$8, postcode=$9, ip=$10, claim_types=$11,
+          hmrc_verified=$12, soa_sent_at=$13, dwp_sent_at=$14, utm=$15, partner_death_date=$16 WHERE id=$1`,
+        [id, JSON.stringify(children), hrp ? JSON.stringify(hrp) : null, pick(["Sarah", "Tom", "Priya", null]), n % 8 === 3, n % 8 === 3 ? "Hard of hearing: post everything, speak to daughter first" : null,
+         `${born}-${String(rnd(1, 12)).padStart(2, "0")}-${String(rnd(1, 28)).padStart(2, "0")}`, `${rnd(2, 98)} ${pick(["Acacia Avenue", "Church Lane", "Park Road", "Mill Street"])}, ${pick(["Stockport", "Cheadle", "Sale", "Bolton"])}`, pick(["SK1 1AA", "SK8 2BB", "M33 3CC", "BL1 4DD"]),
+         "203.0.113." + (10 + n), types, pos > at("signed"), pos >= at("ni_requested") && stage !== "dwp_requested" ? addDays(signed, rnd(8, 12)) : null, pos >= at("dwp_requested") ? addDays(signed, rnd(3, 9)) : null,
+         pick(["utm_source=facebook&utm_campaign=hrp_women67", "utm_source=google&utm_campaign=hrp_search", null]), stage === "uplift_dwp" ? addDays(today(), -rnd(400, 2000)) : null]);
       await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,$2,'created','Test enquiry created')", [id, created + "T10:00:00Z"]);
+      if (n === 6) await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,now() - interval '10 days','complaint','Unhappy about how long HMRC is taking. Wants a call from a manager.')", [id]);
+      if (n === 14) await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,now() - interval '3 days','data','Daughter asked for a copy of all information we hold on her mother.')", [id]);
       for (const note of (NOTES[stage] || [])) await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,$2,'note',$3)", [id, addDays(created, rnd(1, Math.max(1, ageDays))) + "T12:00:00Z", note]);
       n++;
     }
@@ -765,6 +1170,13 @@ app.get("/admin", async (req, res) => {
   <form method="post" action="/admin/seed"><button>Add ${PLAN.reduce((a, p) => a + p[1], 0)} test clients</button></form>
   <form method="post" action="/admin/clear-test"><button class="btn ghost" style="border-color:var(--bad);color:var(--bad)">Delete all test data</button></form></div></div>
   ${await ES.firmForm()}
+  ${await (async () => { const F = await ES.settings(); return `<form class="panel" method="post" action="/admin/addresses"><h2>Postal addresses for HMRC and DWP</h2>
+    <p class="muted">Used on cover letters in Post. Check these against GOV.UK before posting.</p>
+    <div class="grid2"><label>HMRC (NI records and CF411) <textarea name="hmrc_address" rows="3">${esc(F.hmrc_address || HMRC_ADDR_DEFAULT)}</textarea></label>
+    <label>DWP (State Pension information) <textarea name="dwp_address" rows="3">${esc(F.dwp_address || "")}</textarea></label></div><button>Save addresses</button></form>
+    <form class="panel" method="post" action="/admin/ips"><h2>Staff access by internet address</h2>
+    <p class="muted">Leave blank to allow logins from anywhere. Otherwise list the approved addresses, separated by commas. Your address now is <b>${esc(clientIp(req))}</b>; it must be on the list.</p>
+    <input name="staff_ips" value="${esc(F.staff_ips || "")}" style="width:100%" placeholder="e.g. 81.2.69.160, 203.0.113.7"><button>Save</button></form>`; })()}
   <div class="panel"><h2>Client progress page</h2>
   <p>Clients can check their claim at <b>https://${esc(host)}/status</b> using their reference number, surname and the last 4 digits of their phone number. Set a custom update for each client on their record; otherwise they see the standard message for their stage.</p></div>`, { nav: "admin" }));
 });

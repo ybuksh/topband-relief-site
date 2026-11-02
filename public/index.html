@@ -414,7 +414,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   async function sendLead(){
     const consentText=document.querySelector(".consent span")?.textContent.trim()||"";
     try{
-      const r=await fetch(CRM_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...A,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||""})});
+      const r=await fetch(CRM_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...A,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||"",ref_url:document.referrer||"",utm:[...new URLSearchParams(location.search)].filter(([k])=>/^utm_|^gclid$|^fbclid$/.test(k)).map(([k,v])=>k+"="+v).join("&").slice(0,300)})});
       const j=await r.json().catch(()=>({}));
       sent=r.ok&&j.ok?{ok:true,ref:j.ref}:{ok:false,error:j.error};
     }catch(e){sent={ok:false};}
@@ -479,7 +479,9 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       const row=el("div",{class:"row"});
       const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;
       const go=el("button",{type:"button",class:"btn btn-primary"},"Continue");
-      go.onclick=()=>{const v=f.querySelector("select").value;if(!v){f.querySelector("#yearErr").textContent="Choose a year of birth to continue";return;}A[s.id]=v;next();};
+      go.onclick=()=>{const v=f.querySelector("select").value;if(!v){f.querySelector("#yearErr").textContent="Choose a year of birth to continue";return;}A[s.id]=v;
+        if(s.id==="born"&&+v>=1961)return renderStop("People born in 1961 or later haven't reached State Pension age yet, so there are no arrears to claim. It's still worth checking your National Insurance record now: you can apply to add missing Home Responsibilities Protection for free at GOV.UK.");
+        next();};
       f.querySelector("select").addEventListener("change",()=>{f.querySelector("#yearErr").textContent="";});
       row.append(back,go);panel.append(row);return;
     }
@@ -531,7 +533,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   function renderStop(msg){
     panel.innerHTML="";
     panel.append(el("span",{class:"eyebrow"},"Your answer"));
-    panel.append(el("h3",{},A.pension==="none"&&steps[idx].id==="pension"?"There's nothing to claim back yet":A.cb==="partner"&&steps[idx].id==="cb"?"Your partner would need to make this claim":"It doesn't look as though we can help with this"));
+    panel.append(el("h3",{},(A.pension==="none"&&steps[idx].id==="pension")||(steps[idx].id==="born"&&+A.born>=1961)?"There's nothing to claim back yet":A.cb==="partner"&&steps[idx].id==="cb"?"Your partner would need to make this claim":"It doesn't look as though we can help with this"));
     panel.append(el("div",{class:"note"},`<p>${msg}</p>`));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
