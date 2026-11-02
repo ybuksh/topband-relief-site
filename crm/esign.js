@@ -7,6 +7,22 @@ const crypto = require("crypto");
 const { buildDocs, DOC_TYPES, DOC_CSS, FIRM_FIELDS, COOLING_DAYS, ukDate } = require("./esign-docs");
 
 const LINK_DAYS = 30, MAX_TRIES = 5;
+/* fixed declarations the client confirms when signing (aligned with the HMRC-reviewed wording) */
+const DECL_PACK = [
+  "the information I have given is true and complete, and I will tell Missing Years if anything changes",
+  "I am signing for myself and I have the ability to make this decision",
+  "I have read the final completed version of each document above before signing",
+  "I understand DWP pays any arrears directly to me, and the fee is 36% of the arrears I actually receive (30% plus VAT), invoiced only after DWP confirms them and due 14 days from the invoice",
+  "I understand HMRC will only be asked about specific tax years, and HMRC may contact me to check I authorised this",
+  "I understand a claim form (CF411) will only be prepared, for me to check and sign later, if my records support a claim",
+  "I can cancel within 14 days from today and pay nothing",
+  "I agree to be contacted about my claim by phone, text, WhatsApp, email and post"
+];
+const DECL_CF411 = [
+  "I have checked the details on this claim declaration and they are correct and complete",
+  "I am signing for myself and I have the ability to make this decision",
+  "I understand DWP pays any arrears directly to me"
+];
 const sha = s => crypto.createHash("sha256").update(s).digest("hex");
 /* fingerprint of the whole set, independent of how the database stores the JSON */
 const setHash = docs => sha(docs.map(d => [d.key, d.title, d.hash].join("\u0000")).join("\n"));
@@ -52,7 +68,8 @@ module.exports = function esign(ctx) {
   async function build(L, kind, body) {
     const F = await settings();
     const include = kind === "pack" && (body.include_ni === "1" || body.include_ni === true) ? ["nirequest"] : [];
-    return buildDocs(kind, L, F, { validNi, include, years: requestYears(L) || [], claimDetails: body.claim_details || "" });
+    const ftYears = String(L.ft_years || "").split(",").map(Number).filter(Boolean);
+    return buildDocs(kind, L, F, { validNi, include, years: requestYears(L) || [], ftYears, spYear: L.sp_start_year, claimDetails: body.claim_details || "" });
   }
 
   /* signer session: cookie per request, set after the date-of-birth check */
@@ -123,7 +140,8 @@ module.exports = function esign(ctx) {
               <canvas class="pad" id="pad" aria-label="Signature box. Draw with your finger or mouse."></canvas>
               <button type="button" class="btn ghost" id="clear" style="justify-self:start">Clear signature</button></div>
             <input type="hidden" name="signature_png" id="png">
-            <label class="ack"><input type="checkbox" name="consent" value="1" required> I agree to sign electronically. I understand my electronic signature is legally binding, just like signing on paper.</label>
+            <div class="ack" style="display:block;cursor:default"><b>By signing I confirm that:</b><ul style="margin:8px 0 0;padding-left:22px;font-weight:400">${(r.kind === "cf411" ? DECL_CF411 : DECL_PACK).map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+            <label class="ack"><input type="checkbox" name="consent" value="1" required> I confirm all of the above and agree to sign electronically. I understand an electronic signature has the same legal effect as a handwritten one, and that I can ask for paper copies instead.</label>
             <p class="err" id="err" role="alert"></p>
             <button class="big" type="submit">Sign ${docs.length > 1 ? "all documents" : "this document"}</button>
           </div></form>
@@ -182,6 +200,7 @@ module.exports = function esign(ctx) {
         const up = await pool.query(`UPDATE sign_requests SET status='signed', signed_at=$2, signer_name=$3, signature_png=$4, signer_ip=$5, signer_ua=$6, seal=$7 WHERE id=$1 AND status IN ('sent','opened') RETURNING id`, [r.id, at, name, png || null, ip, ua, seal]);
         if (!up.rows.length) return res.redirect(`/sign/${r.token}`);
         await event(r.id, `Read and acknowledged: ${r.docs.map(d => d.title).join("; ")}`, req);
+        await event(r.id, `Confirmed the declarations: ${(r.kind === "cf411" ? DECL_CF411 : DECL_PACK).join(" | ")}`, req);
         await event(r.id, `Signed as "${name}"${png ? " with a drawn signature" : ""}, agreeing to sign electronically`, req);
         if (r.kind === "pack") {
           const idPassed = L.kyc === "passed";
@@ -247,6 +266,8 @@ module.exports = function esign(ctx) {
       app.post("/lead/:id/esign", async (req, res) => {
         const L = await getLead(req.params.id); if (!L) return res.redirect("/");
         const kind = req.body.kind === "cf411" ? "cf411" : "pack";
+        if (L.attorney && !L.is_test) return res.redirect(`/lead/${L.id}?err=${encodeURIComponent("Someone else acts for this client. The policy on attorneys isn't decided yet, so documents can't be sent.")}`);
+        if (L.stage === "fraud_freeze") return res.redirect(`/lead/${L.id}?err=${encodeURIComponent("This case is frozen for suspected fraud. Documents can't be sent.")}`);
         const { docs, missing } = await build(L, kind, req.body);
         if (missing.length && !L.is_test) return res.redirect(`/lead/${L.id}?err=${encodeURIComponent("Documents aren't complete: " + missing.join(", "))}`);
         const prev = (await pool.query("SELECT coalesce(max(version),0) AS v FROM sign_requests WHERE lead_id=$1 AND kind=$2", [L.id, kind])).rows[0].v;
