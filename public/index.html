@@ -14,6 +14,8 @@
 {"@type":"Question","name":"Can I claim missing HRP myself without paying a fee?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you."}},
 {"@type":"Question","name":"Do I need any documents to start?","acceptedAnswer":{"@type":"Answer","text":"No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it."}},
 {"@type":"Question","name":"How long does a claim take?","acceptedAnswer":{"@type":"Answer","text":"HMRC has a large backlog. Most claims take 6 to 12 months from submission to payment."}},
+{"@type":"Question","name":"Does receiving Child Benefit mean I'm owed money?","acceptedAnswer":{"@type":"Answer","text":"Not automatically. Many people who received Child Benefit already have the right Home Responsibilities Protection on their record. We only make a claim if your HMRC and DWP records show one is supported."}},
+{"@type":"Question","name":"Can I cancel?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can cancel within 14 days of signing at no cost, even if we've already started work."}},
 {"@type":"Question","name":"Can I claim for a parent who has died?","acceptedAnswer":{"@type":"Answer","text":"Yes. The person dealing with their estate can claim any arrears that were owed to them."}}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap">
@@ -122,8 +124,8 @@ section.block{padding-block:56px;border-top:1px solid var(--line);display:flex;f
 @media (max-width:980px){.other{grid-template-columns:1fr}.other li{border-right:0;border-bottom:1px solid var(--line)}.other li:last-child{border-bottom:0}}
 .other li strong{display:block}
 .other li span{color:var(--muted);font-size:.95rem}
-.steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:22px;counter-reset:s}
-@media (max-width:880px){.steps{grid-template-columns:1fr 1fr}}
+.steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(5,1fr);gap:22px;counter-reset:s}
+@media (max-width:980px){.steps{grid-template-columns:1fr 1fr}}
 @media (max-width:520px){.steps{grid-template-columns:1fr}}
 .steps li{counter-increment:s;display:flex;flex-direction:column;gap:6px}
 .steps li::before{content:counter(s);display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--tint);color:var(--accent);font-family:var(--display);font-weight:700;font-size:1.15rem}
@@ -152,6 +154,9 @@ section.block{padding-block:56px;border-top:1px solid var(--line);display:flex;f
 .field label{font-weight:700}
 .field input,.field select{border:2px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);min-height:52px}
 .field .hint{font-size:.88rem;color:var(--muted)}
+.ygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.ygrid .opt{min-height:48px;padding:10px;justify-content:center;font-size:.98rem;font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:.98rem;align-self:flex-start}
 .consent{display:flex;gap:12px;align-items:flex-start;font-size:.95rem;color:var(--muted)}
 .consent input{margin-top:5px;width:22px;height:22px;accent-color:var(--accent);flex:none}
 
@@ -207,7 +212,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
         <li>No win, no fee</li>
       </ul>
       <div class="hero-q" role="group" aria-labelledby="hq">
-        <p id="hq">Start here: did you receive Child Benefit for any children between 1978 and 2010?</p>
+        <p id="hq">Start here: was Child Benefit paid to you for any children between 1978 and 2010?</p>
         <div class="opts3">
           <button class="btn btn-primary" type="button" data-cb="yes">Yes</button>
           <button class="btn btn-ghost" type="button" data-cb="no">No</button>
@@ -241,18 +246,18 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     <div><span class="ic" aria-hidden="true">✓</span><span><b>No documents to start</b>We gather the evidence for you</span></div>
     <div><span class="ic" aria-hidden="true">✓</span><span><b>HMRC-registered tax agent</b>Supervised by HMRC for anti-money laundering</span></div>
     <div><span class="ic" aria-hidden="true">✓</span><span><b>Never your bank details</b>No card, PIN or upfront payment</span></div>
-    <div><span class="ic" aria-hidden="true">✓</span><span><b>14 days to change your mind</b>Cancel at no cost</span></div>
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>14 days to change your mind</b>Cancel free, even if we've started</span></div>
   </div>
 
   <section class="block" id="who" aria-labelledby="who-t">
     <div class="section-head">
       <span class="eyebrow">Who may be affected</span>
       <h2 id="who-t">Most people affected are women now in their 60s, 70s and 80s</h2>
-      <p>Home Responsibilities Protection should have been added automatically, but for many people who first claimed Child Benefit before May 2000 it never was.</p>
+      <p>Home Responsibilities Protection should have been added automatically, but for many people who first claimed Child Benefit before May 2000 it never was. HRP went to the person the Child Benefit was paid to.</p>
     </div>
     <div class="who">
       <article><span class="when">1978 to 2000</span><h3>Mothers who claimed Child Benefit</h3><p>Especially if you stayed at home or worked part-time while your children were young.</p></article>
-      <article><span class="when">1978 to 2010</span><h3>The main carer when your partner claimed</h3><p>If your partner received the Child Benefit but you looked after the children.</p></article>
+      <article><span class="when">2000 to 2010</span><h3>Parents who claimed more recently</h3><p>If Child Benefit was paid to you for a child under 16 and you weren't working full time, some later years can be missing too.</p></article>
       <article><span class="when">1978 to 2002</span><h3>Carers of someone sick or disabled</h3><p>If the person you cared for received Attendance Allowance or higher-rate Disability Living Allowance.</p></article>
       <article><span class="when">2003 to 2010</span><h3>Foster and kinship carers</h3><p>Registered foster carers, and kinship carers in Scotland.</p></article>
     </div>
@@ -290,9 +295,10 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <h2 id="how-t">You answer a few questions. We deal with HMRC and DWP.</h2>
     </div>
     <ol class="steps">
-      <li><h3>Check</h3><p>Answer a few simple questions about your family, work and pension. It takes about a minute.</p></li>
-      <li><h3>Consider</h3><p>We call you, look at your National Insurance record and explain what may be missing.</p></li>
-      <li><h3>Claim</h3><p>With your permission, we prepare the forms and evidence and send your claim to HMRC.</p></li>
+      <li><h3>Check</h3><p>Answer a few simple questions. It takes about a minute. We call you to talk it through, with no obligation.</p></li>
+      <li><h3>Sign up</h3><p>We send your fee agreement and authority forms, filled in for you to read before you sign. Sign online or on paper. You have 14 days to cancel free.</p></li>
+      <li><h3>Records</h3><p>We confirm your identity electronically, then ask HMRC for your National Insurance record for the specific years that matter, and ask DWP for your pension details.</p></li>
+      <li><h3>Claim</h3><p>Only if the records show you're owed something do we prepare the HRP claim form (CF411). You check and sign it, then we send it to HMRC.</p></li>
       <li><h3>Collect</h3><p>If your record is corrected, DWP pays any arrears straight to you and increases your weekly pension. This usually takes 6 to 12 months because of HMRC's backlog.</p></li>
     </ol>
   </section>
@@ -319,11 +325,12 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     <div class="fees">
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="fee-big num">36%</div>
-        <p>Our fee is 30% of the backdated arrears you receive, plus VAT at 20%, which is 36% in total.</p>
+        <p>Our fee is 30% of the backdated arrears you actually receive, plus VAT at 20%, which is 36% in total. If DWP keeps back part of your arrears to repay a debt, we only charge on what's paid to you.</p>
         <ul style="margin:0;padding-left:22px;display:grid;gap:8px">
           <li>Nothing to pay if no arrears are paid</li>
           <li>No fee on your weekly pension increase</li>
-          <li>DWP pays you directly. Once you've received your arrears, send us the award letter and we'll invoice you, due within 14 days</li>
+          <li>DWP pays you directly. We only invoice once DWP has confirmed your arrears, and payment is due 14 days from the invoice date</li>
+          <li>Pay by bank transfer, cheque or over the phone</li>
           <li>Payment plans available if you need more time</li>
         </ul>
       </div>
@@ -352,15 +359,19 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <h2 id="faq-t">Common questions</h2>
     </div>
     <div class="faq">
-      <details><summary>Is this a scam?</summary><p>No. We are a registered HMRC tax agent, supervised by HMRC for anti-money laundering. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost.</p></details>
+      <details><summary>Is this a scam?</summary><p>No. We are a registered HMRC tax agent, supervised by HMRC for anti-money laundering. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost, even if we've already started work.</p></details>
+      <details><summary>Does receiving Child Benefit mean I'm owed money?</summary><p>Not automatically. Many people who received Child Benefit already have the right HRP on their record, and HRP only went to the person the Child Benefit was paid to. We look at your HMRC and DWP records first, and only prepare a claim if they show one is supported. If they don't, we tell you and there's nothing to pay.</p></details>
       <details><summary>Can I claim myself without paying a fee?</summary><p>Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you.</p></details>
-      <details><summary>Do I need any documents to start?</summary><p>No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it. If you prefer paper, we'll post everything to you.</p></details>
+      <details><summary>Do I need any documents to start?</summary><p>No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it. If you already use your HMRC online account, you can share your National Insurance record with us to speed things up, but you don't have to.</p></details>
+      <details><summary>What will I be asked to sign?</summary><p>A fee agreement, an HMRC form 64-8 so we can deal with HMRC for you, and a DWP letter of authority. We fill them in fully before you see them, so you can read everything before signing. Sign online or ask for paper copies by post. We never change a document after you've signed it; if anything needs correcting, we send you a new version. The claim form itself (CF411) is only sent to you to sign later, once your records show a claim is supported.</p></details>
+      <details><summary>Why do you ask which years I worked full time?</summary><p>HMRC asks agents to request only the tax years that matter, not your whole record. Years when you worked full time already count towards your pension, so we leave them out.</p></details>
       <details><summary>Can I speak to someone?</summary><p>Yes. Call us free on 0800 999 999, weekdays 9am to 5pm, or request a call back at the end of the check.</p></details>
       <details><summary>How can I check how my claim is going?</summary><p>Use the "Check your claim" page with your reference number, your surname and the last four digits of your phone number. You can also call us free on 0800 999 999.</p></details>
       <details><summary>How long does it take?</summary><p>HMRC currently has a large backlog. People are waiting between three and eleven months for a decision, and DWP pays arrears after that. We keep you updated throughout.</p></details>
       <details><summary>Will it affect my tax or benefits?</summary><p>Arrears are taxed as income for the years they relate to. A higher pension can also reduce means-tested benefits such as Pension Credit or Housing Benefit. We'll explain this before you decide, and Citizens Advice or Age UK can give free benefits advice.</p></details>
       <details><summary>Can I claim for a parent who has died?</summary><p>Yes. If your mother or another relative may have been affected, the person dealing with their estate can claim any arrears that were owed to them.</p></details>
       <details><summary>Is the fee charged on my weekly pension increase?</summary><p>No. We only charge on the backdated arrears you actually receive. The increase to your weekly pension is yours in full.</p></details>
+      <details><summary>When and how do I pay?</summary><p>Only after DWP has confirmed and paid your arrears. We send an invoice with the DWP figures, and payment is due 14 days from the invoice date. You can pay by bank transfer, cheque or over the phone, and we can agree a payment plan if you need more time.</p></details>
       <details><summary>Are you part of HMRC or DWP?</summary><p>No. We are an independent company registered with HMRC as a tax agent, acting on your behalf. We are not part of, or endorsed by, HMRC, DWP or the government.</p></details>
     </div>
   </section>
@@ -411,7 +422,9 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   const years=[];for(let y=1975;y>=1925;y--)years.push(String(y));
   const steps=[
     {id:"cb",q:"Did you (or they) receive Child Benefit, or Family Allowance, for any children between 1978 and 2010?",
-     opts:[["yes","Yes"],["partner","No, my partner claimed it but I looked after the children"],["no","No"],["unsure","Not sure"]]},
+     help:"We mean Child Benefit paid to you personally, not to your husband, wife or partner.",
+     opts:[["yes","Yes, it was paid to me"],["partner","No, it was paid to my partner"],["no","No"],["unsure","Not sure"]],
+     stop:{partner:"Home Responsibilities Protection was given to the person the Child Benefit was paid to, so any claim for those years would normally be your partner's to make. If your partner would like their record checked, they can start their own check here. If you cared for someone sick or disabled, or fostered a child, go back and choose \"No\" so we can ask about that."}},
     {id:"care",q:"Between 1978 and 2010, did you care for someone sick or disabled, or foster a child?",when:()=>A.cb==="no",
      opts:[["yes","Yes"],["no","No"]],
      stop:{no:"HRP was mainly for parents receiving Child Benefit and for carers, so it doesn't look as though missing HRP applies. If you're married, widowed, divorced or over 80, a different underpayment may still apply. Go back and choose \"Not sure\" if you'd like us to check."}},
@@ -422,6 +435,13 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
      stop:{full:"If you already receive the full State Pension, missing years shouldn't have reduced it, so there's unlikely to be anything to claim.",
            none:"Because your State Pension hasn't started, there are no arrears to claim yet. It's still worth fixing your record now so your pension is right from the start. You can do this free at GOV.UK by searching \"Home Responsibilities Protection\". We only charge on backdated arrears, so we wouldn't charge you anything for this."}},
     {id:"born",q:"What year were you (or they) born?",select:years,help:"This tells us which State Pension rules apply."},
+    {id:"kids",q:"Roughly when were your (or their) children born?",custom:renderKids,when:()=>A.cb==="yes"||A.cb==="unsure",
+     help:"This tells us which years to look at. An approximate year is fine."},
+    {id:"ft",q:"Between 1978 and 2010, were there any tax years when you (or they) worked full time?",
+     help:"HMRC asks us to request only the years that matter. Years you worked full time already count, so we leave them out.",
+     opts:[["no","No, never full time in those years"],["some","Yes, for some of those years"],["unsure","Not sure"]]},
+    {id:"fty",q:"Which tax years did you (or they) work full time?",custom:renderFtYears,when:()=>A.ft==="some",
+     help:"Tap each tax year. A tax year runs from April to April, so 1985–86 means April 1985 to April 1986."},
     {id:"status",q:"What is your (or their) marital status?",
      opts:[["married","Married or in a civil partnership"],["widowed","Widowed"],["divorced","Divorced or dissolved"],["single","Single"]]},
     {id:"credit",q:"Do you (or they) receive Pension Credit?",help:"A higher State Pension can change Pension Credit. We'll explain this before you decide.",
@@ -432,6 +452,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   const visible=()=>steps.filter(s=>!s.when||s.when());
   function curIndex(){return visible().indexOf(steps[idx]);}
 
+  function validNi(n){return /^[A-CEGHJ-PR-TW-Z][A-CEGHJ-NPR-TW-Z]\d{6}[A-D]$/.test(n)&&!/^(BG|GB|KN|NK|NT|TN|ZZ)/.test(n);}
   function el(tag,attrs={},html){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
   function next(){do{idx++;}while(idx<steps.length&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
   function prev(){do{idx--;}while(idx>0&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
@@ -450,6 +471,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     panel.append(el("span",{class:"eyebrow"},`Question ${curIndex()+1} of ${total}`));
     panel.append(el("h3",{},s.q));
     if(s.help)panel.append(el("p",{class:"small"},s.help));
+    if(s.custom)return s.custom(s);
     if(s.select){
       const f=el("div",{class:"field"});
       f.innerHTML=`<label for="yearSel">Year of birth</label><select id="yearSel"><option value="">Choose a year</option>${s.select.map(y=>`<option${A[s.id]===y?" selected":""}>${y}</option>`).join("")}</select><span class="err" id="yearErr"></span>`;
@@ -470,10 +492,46 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     panel.append(opts);
     if(idx>0){const row=el("div",{class:"row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;row.append(back);panel.append(row);}
   }
+  function navRow(onGo,goText){
+    const row=el("div",{class:"row"});
+    const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;
+    const go=el("button",{type:"button",class:"btn btn-primary"},goText||"Continue");go.onclick=onGo;
+    row.append(back,go);panel.append(row);
+  }
+  function renderKids(s){
+    const ky=[];for(let y=2010;y>=1950;y--)ky.push(String(y));
+    const sel=(id,lab)=>`<div class="field"><label for="${id}">${lab}</label><select id="${id}"><option value="">Choose a year</option>${ky.map(y=>`<option${A[id]===y?" selected":""}>${y}</option>`).join("")}</select></div>`;
+    const f=el("div",{class:"form-grid"},sel("kid1","Eldest child born")+sel("kid2","Youngest child born"));
+    panel.append(f);
+    const err=el("span",{class:"err"});panel.append(err);
+    const skip=el("button",{type:"button",class:"linkbtn"},"I'm not sure, skip this question");
+    skip.onclick=()=>{delete A.kid1;delete A.kid2;next();};panel.append(skip);
+    f.querySelectorAll("select").forEach(x=>x.addEventListener("change",()=>{err.textContent="";}));
+    navRow(()=>{
+      const a=f.querySelector("#kid1").value,b=f.querySelector("#kid2").value;
+      if(!a&&!b){err.textContent="Choose at least one year, or skip this question";return;}
+      if(a&&b&&+b<+a){err.textContent="The youngest child's year can't be before the eldest's";return;}
+      A.kid1=a||b;A.kid2=b||a;next();
+    });
+  }
+  function renderFtYears(s){
+    const chosen=new Set(A.fty||[]);
+    const g=el("div",{class:"ygrid",role:"group","aria-label":s.q});
+    for(let y=1978;y<=2009;y++){
+      const b=el("button",{type:"button",class:"opt","aria-pressed":String(chosen.has(y))},`${y}–${String(y+1).slice(2)}`);
+      b.onclick=()=>{chosen.has(y)?chosen.delete(y):chosen.add(y);b.setAttribute("aria-pressed",String(chosen.has(y)));err.textContent="";};
+      g.append(b);
+    }
+    panel.append(g);
+    const err=el("span",{class:"err"});panel.append(err);
+    const unsure=el("button",{type:"button",class:"linkbtn"},"I'm not sure which years");
+    unsure.onclick=()=>{A.ft="unsure";delete A.fty;next();};panel.append(unsure);
+    navRow(()=>{if(!chosen.size){err.textContent="Tap at least one tax year, or choose \"I'm not sure which years\"";return;}A.fty=[...chosen].sort((a,b)=>a-b);next();});
+  }
   function renderStop(msg){
     panel.innerHTML="";
     panel.append(el("span",{class:"eyebrow"},"Your answer"));
-    panel.append(el("h3",{},A.pension==="none"&&steps[idx].id==="pension"?"There's nothing to claim back yet":"It doesn't look as though we can help with this"));
+    panel.append(el("h3",{},A.pension==="none"&&steps[idx].id==="pension"?"There's nothing to claim back yet":A.cb==="partner"&&steps[idx].id==="cb"?"Your partner would need to make this claim":"It doesn't look as though we can help with this"));
     panel.append(el("div",{class:"note"},`<p>${msg}</p>`));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
@@ -493,6 +551,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <div class="field"><label for="mn">Maiden or previous surname <span class="small">(optional)</span></label><input id="mn"><span class="hint">Helps HMRC find older records</span></div>
       <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><span class="err" id="emErr"></span></div>
       <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint">Mobile or landline</span><span class="err" id="phErr"></span></div>
+      <div class="field"><label for="ni">National Insurance number <span class="small">(optional)</span></label><input id="ni" autocomplete="off" autocapitalize="characters" spellcheck="false"><span class="hint">On payslips, P60s and pension letters, like QQ 12 34 56 C</span><span class="err" id="niErr"></span></div>
       <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Any time, 9am to 5pm</option></select><span class="err" id="btErr"></span></div>
     </div>
     <input type="text" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
@@ -500,7 +559,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     <span class="err" id="okErr"></span>
     <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
     panel.append(f);
-    ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
+    ["ti","fn","ln","mn","em","ph","ni","bt"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
     f.querySelector("#ok").checked=!!A.ok;
     f.querySelector("#ok").addEventListener("change",()=>{f.querySelector("#okErr").textContent="";});
     f.querySelector("#back").onclick=prev;
@@ -513,17 +572,19 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       set("ln",v("ln")?"":"Enter your last name");
       set("em",/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address, like name@example.com");
       set("ph",/^(\+44\s?|0)\d[\d\s]{8,12}$/.test(v("ph"))?"":"Enter a UK phone number, like 07700 900123 or 0161 496 0000");
+      const ni=v("ni").replace(/\s/g,"").toUpperCase();
+      set("ni",!ni||validNi(ni)?"":"Check your National Insurance number. It's 2 letters, 6 numbers and 1 letter, like QQ 12 34 56 C. Or leave it blank");
       set("bt",v("bt")?"":"Choose a time for us to call");
       set("ok",f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your check");
       if(bad)return;
-      ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>A[k]=v(k));A.ok=true;
+      ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>A[k]=v(k));A.ni=ni;A.ok=true;
       const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Sending…";
       sendLead().then(()=>{idx=steps.length;render();focusPanel();});
     });
   }
   function renderResult(){
     const checks=[];
-    if(A.cb==="yes"||A.cb==="partner"||A.cb==="unsure")checks.push("Missing Home Responsibilities Protection for the years you raised children");
+    if(A.cb==="yes"||A.cb==="unsure")checks.push("Missing Home Responsibilities Protection for the years you raised children");
     if(A.cb==="no"&&A.care==="yes")checks.push("Missing HRP for the years you were a carer or foster carer");
     if(A.status==="married")checks.push("The married person uplift based on your husband's or wife's record");
     if(A.status==="widowed")checks.push("The widow or widower uplift");
@@ -540,11 +601,11 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     if(A.credit!=="no")notes.push("Because you may receive Pension Credit, we'll explain how a higher State Pension could affect it before you decide.");
     if(A.pension==="none")notes.push("As the State Pension hasn't started yet, correcting the record now could mean a higher pension from the start.");
     panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
-    panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
+    panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Receiving Child Benefit doesn't automatically mean you're owed anything: we only make a claim if your HMRC and DWP records show one is supported, and only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
     if(sent&&sent.ok){
-      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. Keep it safe: you can use it to <a href="https://missing-years-crm.onrender.com/status">check your progress online</a> at any time. You'll only be asked to sign anything once you're happy to go ahead.</p>`));
+      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. Keep it safe: you can use it to <a href="https://missing-years-crm.onrender.com/status">check your progress online</a> at any time. You'll only be asked to sign anything once you're happy to go ahead, and you can cancel free within 14 days of signing.</p>`));
     }else{
       panel.append(el("div",{class:"note"},`<p><strong>We couldn't send your details just now.</strong> ${sent&&sent.error?sent.error:"Please call us free on 0800 999 999, weekdays 9am to 5pm, and we'll take them over the phone."}</p>`));
       const retry=el("button",{type:"button",class:"btn btn-primary"},"Try sending again");
