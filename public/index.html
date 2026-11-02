@@ -69,7 +69,8 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 .record{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .record-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
-.years{display:grid;grid-template-columns:repeat(11,1fr);gap:5px}
+.years{display:grid;grid-template-columns:3.4em repeat(11,1fr);gap:5px;align-items:center}
+.rowlab{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
 .yr{aspect-ratio:1;max-width:100%;border-radius:5px;background:var(--accent);opacity:.9;position:relative;transition:background .4s ease}
 .yr.gap{background:var(--gap);outline:1.5px dashed var(--gap-ink);outline-offset:-1.5px}
 .yr.fixed{background:var(--good);outline:none}
@@ -184,7 +185,6 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
         <span class="small">1978 to 2010</span>
       </div>
       <div class="years" id="years" role="img" aria-label="Example record with 12 missing years between 1984 and 1995"></div>
-      <div class="axis"><span>1978</span><span>1994</span><span>2010</span></div>
       <div class="legend">
         <span><i style="background:var(--accent)"></i>Qualifying year</span>
         <span><i style="background:var(--gap);outline:1.5px dashed var(--gap-ink);outline-offset:-1.5px"></i>Gap while raising children</span>
@@ -315,6 +315,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   const yearsEl=document.getElementById("years"), btn=document.getElementById("fixBtn"), count=document.getElementById("count");
   const cells=[];
   for(let y=1978;y<=2010;y++){
+    if((y-1978)%11===0){const l=document.createElement("span");l.className="rowlab";l.textContent=y+"–"+String(y+10).slice(2);yearsEl.append(l);}
     const d=document.createElement("span");
     d.className="yr"+(y>=1984&&y<=1995?" gap":"");
     d.title=String(y);
