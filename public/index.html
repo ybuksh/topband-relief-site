@@ -395,6 +395,16 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   /* checker */
   const panel=document.getElementById("panel"), fill=document.getElementById("barFill"), bar=document.getElementById("bar"), timeLeft=document.getElementById("timeLeft");
   const A={};
+  const CRM_API="https://missing-years-crm.onrender.com/api/leads";
+  let sent=null;
+  async function sendLead(){
+    const consentText=document.querySelector(".consent span")?.textContent.trim()||"";
+    try{
+      const r=await fetch(CRM_API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...A,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||""})});
+      const j=await r.json().catch(()=>({}));
+      sent=r.ok&&j.ok?{ok:true,ref:j.ref}:{ok:false,error:j.error};
+    }catch(e){sent={ok:false};}
+  }
   const years=[];for(let y=1975;y>=1925;y--)years.push(String(y));
   const steps=[
     {id:"cb",q:"Did you (or they) receive Child Benefit, or Family Allowance, for any children between 1978 and 2010?",
@@ -482,6 +492,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint">Mobile or landline</span><span class="err" id="phErr"></span></div>
       <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Any time, 9am to 5pm</option></select><span class="err" id="btErr"></span></div>
     </div>
+    <input type="text" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
     <label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
     <span class="err" id="okErr"></span>
     <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
@@ -503,7 +514,8 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       set("ok",f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your check");
       if(bad)return;
       ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>A[k]=v(k));A.ok=true;
-      idx=steps.length;render();focusPanel();
+      const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Sending…";
+      sendLead().then(()=>{idx=steps.length;render();focusPanel();});
     });
   }
   function renderResult(){
@@ -528,15 +540,15 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
-    const go=el("button",{type:"button",class:"btn btn-primary"},"Request my call");
-    go.onclick=()=>{
-      panel.innerHTML="";
-      panel.append(el("span",{class:"eyebrow"},"Thank you"));
-      panel.append(el("h3",{},"We'll be in touch"));
-      panel.append(el("p",{},"One of our team will call to talk through your record, explain our fee and answer your questions. You'll only be asked to sign anything once you're happy to go ahead."));
-      panel.append(el("div",{class:"note"},"<p>Test version: nothing has been sent yet. This step will connect to the CRM.</p>"));
-    };
-    row.append(back,go);panel.append(row);
+    if(sent&&sent.ok){
+      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. You'll only be asked to sign anything once you're happy to go ahead.</p>`));
+    }else{
+      panel.append(el("div",{class:"note"},`<p><strong>We couldn't send your details just now.</strong> ${sent&&sent.error?sent.error:"Please call us free on 0800 999 999, weekdays 9am to 5pm, and we'll take them over the phone."}</p>`));
+      const retry=el("button",{type:"button",class:"btn btn-primary"},"Try sending again");
+      retry.onclick=async()=>{retry.disabled=true;retry.textContent="Sending…";await sendLead();panel.innerHTML="";renderResult();focusPanel();};
+      row.append(retry);
+    }
+    row.prepend(back);panel.append(row);
   }
   document.querySelectorAll("[data-cb]").forEach(b=>b.addEventListener("click",()=>{
     A.cb=b.dataset.cb; idx=0; next();
