@@ -37,6 +37,21 @@ const STAGES = [
 const STAGE = Object.fromEntries(STAGES.map(s => [s.id, s]));
 const OPEN_STAGES = STAGES.filter(s => !s.id.startsWith("closed") && s.id !== "paid");
 
+const CLIENT_STEPS = ["Enquiry received", "Reviewing your record", "Paperwork signed", "Claim with HMRC", "Decision made", "Complete"];
+const CLIENT_STAGE = {
+  new: [0, "We've received your enquiry. One of our team will call you at the time you chose."],
+  contacted: [1, "We've spoken with you and are looking at your National Insurance record."],
+  qualified: [1, "We're getting your paperwork ready. You'll receive it to sign shortly."],
+  pack_sent: [1, "We've sent your paperwork. Please sign it when you're ready, or call us with any questions."],
+  signed: [2, "Thank you for signing. We're preparing your claim for HMRC."],
+  preparing: [2, "We're preparing your claim and checking every detail before it goes to HMRC."],
+  submitted: [3, "Your claim is with HMRC. They currently take several months to reply. We'll chase them and keep you updated."],
+  decision: [4, "HMRC has made a decision. If arrears are due, DWP will pay them straight to you. Please send us your DWP award letter when it arrives."],
+  invoiced: [4, "Your claim is complete and we've sent our invoice. Please call us if you have any questions about it."],
+  paid: [5, "Your claim is complete. Thank you for using us."],
+  closed_none: [5, "This claim is now closed. Please call us if you have any questions."],
+  closed_lost: [5, "This claim is now closed. Please call us if you have any questions."]
+};
 const LABELS = {
   cb: { yes: "Yes", partner: "Partner claimed, client was main carer", no: "No", unsure: "Not sure" },
   care: { yes: "Yes", no: "No" },
@@ -99,6 +114,9 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS leads_stage_idx ON leads(stage);
     CREATE INDEX IF NOT EXISTS activity_lead_idx ON activity(lead_id);
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS client_message TEXT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS client_message_at TIMESTAMPTZ;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS is_test BOOLEAN NOT NULL DEFAULT false;
   `);
 }
 const log = (id, kind, text) => pool.query("INSERT INTO activity(lead_id,kind,text) VALUES($1,$2,$3)", [id, kind, text]);
@@ -160,6 +178,7 @@ ${opts.bare ? "" : `<header><strong>${esc(BRAND)} CRM</strong><nav>
 <a href="/closed" class="${opts.nav === "closed" ? "on" : ""}">Closed</a>
 <a href="/new" class="${opts.nav === "new" ? "on" : ""}">Add enquiry</a>
 <a href="/export.csv">Export</a>
+<a href="/admin" class="${opts.nav === "admin" ? "on" : ""}">Settings</a>
 <a href="/logout">Log out</a></nav></header>`}
 <main>${body}</main></body></html>`;
 }
@@ -233,6 +252,44 @@ app.post("/api/leads", async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ ok: false, error: "Something went wrong. Please call us instead." }); }
 });
 
+/* public: client progress check */
+const statusTries = new Map();
+function statusPage(inner) {
+  return page("Check your claim", `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px">
+  <div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">Check how your claim is going</h1></div>${inner}
+  <p class="muted">Questions? Call us free on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
+}
+const statusForm = (err, v = {}) => `<form class="panel" method="post" action="/status" autocomplete="off">
+  ${err ? `<p class="pill bad" role="alert">${esc(err)}</p>` : `<p class="muted">For your security, enter your reference number and the details below exactly as you gave them to us.</p>`}
+  <label>Reference number <input name="ref" inputmode="numeric" value="${esc(v.ref || "")}" required></label>
+  <label>Surname <input name="surname" value="${esc(v.surname || "")}" required></label>
+  <label>Last 4 digits of your phone number <input name="last4" inputmode="numeric" maxlength="4" pattern="\\d{4}" required></label>
+  <button style="font-size:1.05rem;padding:12px 18px">Show my progress</button></form>`;
+app.get("/status", (req, res) => res.send(statusPage(statusForm())));
+app.post("/status", async (req, res) => {
+  const ip = (req.headers["x-forwarded-for"] || req.ip || "").split(",")[0].trim();
+  const t = (statusTries.get(ip) || []).filter(x => Date.now() - x < 15 * 60e3);
+  if (t.length >= 6) return res.status(429).send(statusPage(statusForm("Too many attempts. Please wait 15 minutes or call us.")));
+  t.push(Date.now()); statusTries.set(ip, t);
+  const ref = parseInt(String(req.body.ref || "").replace(/\D/g, ""), 10);
+  const surname = clip(req.body.surname, 80).toLowerCase();
+  const last4 = String(req.body.last4 || "").replace(/\D/g, "");
+  const L = ref ? (await pool.query("SELECT * FROM leads WHERE id=$1", [ref])).rows[0] : null;
+  const ok = L && (L.last_name || "").trim().toLowerCase() === surname && last4.length === 4 && (L.phone || "").replace(/\D/g, "").endsWith(last4);
+  if (!ok) return res.send(statusPage(statusForm("We couldn't find a claim matching those details. Please check them and try again, or call us.", { ref: req.body.ref, surname: req.body.surname })));
+  await log(L.id, "status", "Client checked their progress online");
+  const [step, text] = CLIENT_STAGE[L.stage] || [0, ""];
+  const closed = L.stage.startsWith("closed");
+  res.send(statusPage(`<div class="panel">
+    <p class="muted">Reference ${L.id} · ${esc(L.title)} ${esc(L.last_name)}</p>
+    <ol style="list-style:none;padding:0;margin:0;display:grid;gap:10px">
+    ${CLIENT_STEPS.map((s, i) => `<li style="display:flex;gap:12px;align-items:center"><span style="flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;${i < step || (i === step && step === 5) ? "background:var(--good);color:#fff" : i === step ? "background:var(--accent);color:var(--accent-ink)" : "background:var(--tint);color:var(--muted)"}">${i < step || (i === step && step === 5) ? "✓" : i + 1}</span><span style="${i === step ? "font-weight:700" : i > step ? "color:var(--muted)" : ""}">${esc(closed && i === 5 ? "Closed" : s)}</span></li>`).join("")}
+    </ol></div>
+    <div class="panel"><h2>Latest update</h2><p style="font-size:1.05rem">${esc(L.client_message || text)}</p>
+    <p class="muted">Last updated ${fmtDate(iso(L.client_message_at || L.updated_at))}</p></div>
+    <a class="btn ghost" href="/status">Check another claim</a>`));
+});
+
 /* login */
 app.get("/login", (req, res) => res.send(page("Log in", `<form class="panel" method="post" action="/login" style="max-width:360px;margin:40px auto">
 <h1>${esc(BRAND)} CRM</h1>${req.query.e ? `<p class="pill bad">That password didn't match. Try again.</p>` : ""}
@@ -269,7 +326,7 @@ app.get("/", async (req, res) => {
   const cols = OPEN_STAGES.map(s => {
     const items = rows.filter(r => r.stage === s.id);
     return `<section class="col"><h2>${esc(s.label)} <span>${items.length}</span></h2>${items.map(r => `<a class="card" href="/lead/${r.id}">
-      <b>${esc(r.title)} ${esc(r.first_name)} ${esc(r.last_name)}</b>
+      <b>${esc(r.title)} ${esc(r.first_name)} ${esc(r.last_name)} ${r.is_test ? `<span class="pill">Test</span>` : ""}</b>
       <small>${r.born ? "Born " + r.born + " · " : ""}${esc(label("pension", r.pension))}${r.for_whom && r.for_whom !== "me" ? " · " + esc(label("for_whom", r.for_whom)) : ""}</small>
       ${dueBadge(r.next_action_date)}</a>`).join("") || `<small class="muted">None</small>`}</section>`;
   }).join("");
@@ -347,7 +404,7 @@ app.get("/lead/:id", async (req, res) => {
   ${req.query.ok ? `<div class="flash">Saved.</div>` : ""}
   <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
     <div><h1>${esc(L.title)} ${esc(L.first_name)} ${esc(L.last_name)}</h1><span class="muted">Ref ${L.id} · received ${fmtDate(iso(L.created_at))} · via ${esc(L.source)}</span></div>
-    <span class="pill">${esc(STAGE[L.stage]?.label)}</span>
+    <span>${L.is_test ? `<span class="pill bad">Test data</span> ` : ""}<span class="pill">${esc(STAGE[L.stage]?.label)}</span></span>
   </div>
   <div class="grid2">
     <div style="display:grid;gap:18px">
@@ -362,6 +419,12 @@ app.get("/lead/:id", async (req, res) => {
         <label>What <input name="next_action" value="${esc(L.next_action)}" style="width:100%"></label>
         <label>When <input type="date" name="next_action_date" value="${iso(L.next_action_date)}"></label>
         <button>Save next action</button>
+      </form>
+      <form class="panel" method="post" action="/lead/${L.id}/client-message">
+        <h2>Update for the client</h2>
+        <p class="muted">Shown when the client checks their progress online. Leave blank to use the standard message for their stage: "${esc((CLIENT_STAGE[L.stage] || [0, ""])[1])}"</p>
+        <textarea name="client_message" placeholder="For example: HMRC has confirmed they're reviewing your claim.">${esc(L.client_message)}</textarea>
+        <button>Save client update</button>
       </form>
       <form class="panel" method="post" action="/lead/${L.id}/note">
         <h2>Add a note</h2>
@@ -420,6 +483,12 @@ app.post("/lead/:id/next", async (req, res) => {
   await log(req.params.id, "next", `Next action: ${clip(req.body.next_action, 200)}${req.body.next_action_date ? " by " + fmtDate(req.body.next_action_date) : ""}`);
   res.redirect("/lead/" + req.params.id + "?ok=1");
 });
+app.post("/lead/:id/client-message", async (req, res) => {
+  const m = clip(req.body.client_message, 1000) || null;
+  await pool.query("UPDATE leads SET client_message=$2, client_message_at=now(), updated_at=now() WHERE id=$1", [req.params.id, m]);
+  await log(req.params.id, "client", m ? "Client update set: " + m : "Client update cleared (standard message shown)");
+  res.redirect("/lead/" + req.params.id + "?ok=1");
+});
 app.post("/lead/:id/note", async (req, res) => {
   const text = clip(req.body.text, 4000); if (text) { await log(req.params.id, clip(req.body.kind, 20) || "note", text); await pool.query("UPDATE leads SET updated_at=now() WHERE id=$1", [req.params.id]); }
   res.redirect("/lead/" + req.params.id + "?ok=1");
@@ -435,6 +504,73 @@ app.post("/lead/:id/claim", async (req, res) => {
   await log(req.params.id, "claim", "Claim details updated" + (arrears ? `: arrears ${gbp(arrears)}, fee ${gbp(fee + vat)} inc. VAT` : ""));
   res.redirect("/lead/" + req.params.id + "?ok=1");
 });
+
+/* settings: test data */
+const FIRST = ["Margaret","Patricia","Susan","Linda","Christine","Janet","Elaine","Carol","Pauline","Barbara","Jean","Sandra","Maureen","Valerie","Brenda","Kathleen","Shirley","Anne","Gillian","Hilary","Lesley","Wendy","Doreen","Rita","Joan","Sheila","Eileen","Marion","Diane","Irene"];
+const LAST = ["Thompson","Hughes","Roberts","Walker","Wright","Robinson","Clarke","Wood","Hall","Green","Lewis","Harrison","Baker","Turner","Hill","Cooper","Ward","Morris","Moore","Jackson","Allen","Kelly","Bennett","Holmes","Shaw","Lloyd","Mason","Marshall","Fletcher","Bailey"];
+const MAIDEN = ["Price","Kerr","Doyle","Hunt","Pearson","Barker","Gray","Fox","Lane","Webb"];
+const NOTES = {
+  contacted: ["Spoke to client. Claimed Child Benefit for two children from 1979. Happy to proceed.", "Daughter on the call too. Mum stayed at home 1981 to 1992."],
+  qualified: ["NI record shows gaps 1983 to 1991. Good candidate."],
+  pack_sent: ["Sign-up pack sent by email. Client prefers paper, posted copy too."],
+  signed: ["Fee agreement and 64-8 signed. ID check passed."],
+  preparing: ["Children's names and dates of birth collected. Preparing HRP application."],
+  submitted: ["HRP application posted to HMRC with covering letter.", "Monthly update texted to client."],
+  decision: ["HMRC letter received: 9 HRP years added. Awaiting DWP award letter."],
+  invoiced: ["DWP award letter received. Invoice sent."],
+  paid: ["Fee received in full. Review request sent."],
+  closed_none: ["NI record already complete. Nothing owed. Client thanked us."],
+  closed_lost: ["Client decided to claim directly with HMRC."]
+};
+const PLAN = [["new",5],["contacted",3],["qualified",3],["pack_sent",3],["signed",2],["preparing",2],["submitted",6],["decision",2],["invoiced",2],["paid",2],["closed_none",1],["closed_lost",1]];
+async function seedTestData() {
+  let n = 0; const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1)); const pick = a => a[rnd(0, a.length - 1)];
+  const order = STAGES.map(s => s.id);
+  for (const [stage, count] of PLAN) {
+    for (let k = 0; k < count; k++) {
+      const si = order.indexOf(stage);
+      const ageDays = stage === "new" ? rnd(0, 2) : stage.startsWith("closed") ? rnd(20, 90) : si <= 4 ? rnd(2, 20) : si <= 6 ? rnd(40, 240) : rnd(240, 330);
+      const created = addDays(today(), -ageDays);
+      const fn = FIRST[(n * 7) % FIRST.length], ln = LAST[(n * 11 + 3) % LAST.length];
+      const born = rnd(1938, 1958), pension = stage === "closed_none" ? "full" : pick(["less", "less", "less", "unsure"]);
+      const signed = si >= 4 && !stage.startsWith("closed") ? addDays(created, rnd(3, 8)) : null;
+      const submitted = si >= 6 && !stage.startsWith("closed") ? addDays(signed, rnd(5, 15)) : null;
+      const decision = si >= 7 && !stage.startsWith("closed") ? addDays(submitted, rnd(180, 300)) : null;
+      const arrears = si >= 7 && !stage.startsWith("closed") ? rnd(3200, 24500) + rnd(0, 99) / 100 : null;
+      const fee = arrears ? Math.round(arrears * FEE_RATE * 100) / 100 : null, vat = fee ? Math.round(fee * VAT_RATE * 100) / 100 : null;
+      const invDate = si >= 8 && !stage.startsWith("closed") ? addDays(decision, rnd(10, 25)) : null;
+      const paid = stage === "paid" ? addDays(invDate, rnd(5, 13)) : null;
+      const sdef = STAGE[stage].next;
+      const nextDate = !sdef ? null : stage === "new" ? nextWorkingDay(created) : stage === "invoiced" ? addDays(invDate, PAY_DAYS) : addDays(today(), rnd(-3, 10));
+      const r = await pool.query(`INSERT INTO leads(created_at,updated_at,stage,source,cb,for_whom,pension,born,marital,credit,title,first_name,last_name,maiden_name,email,phone,best_time,consent,consent_text,next_action,next_action_date,signed_at,submitted_at,decision_at,arrears,fee,vat,invoice_date,invoice_due,paid_at,is_test)
+        VALUES($1,$1,$2,'test',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,true,'Test data',$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,true) RETURNING id`,
+        [created + "T10:" + String(rnd(10, 59)) + ":00Z", stage, pick(["yes", "yes", "yes", "partner", "unsure"]), pick(["me", "me", "me", "help", "died"]), pension, born,
+         pick(["married", "widowed", "widowed", "divorced", "single"]), pick(["no", "no", "yes", "unsure"]), pick(["Mrs", "Mrs", "Ms", "Miss"]), fn, ln, pick(MAIDEN),
+         `${fn.toLowerCase()}.${ln.toLowerCase()}@example.com`, "07700 900" + String(100 + n).slice(-3), pick(["Morning, 9am to 12pm", "Afternoon, 12pm to 5pm", "Any time, 9am to 5pm"]),
+         sdef ? sdef[0] : null, nextDate, signed, submitted, decision, arrears, fee, vat, invDate, invDate ? addDays(invDate, PAY_DAYS) : null, paid]);
+      const id = r.rows[0].id;
+      await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,$2,'created','Test enquiry created')", [id, created + "T10:00:00Z"]);
+      for (const note of (NOTES[stage] || [])) await pool.query("INSERT INTO activity(lead_id,at,kind,text) VALUES($1,$2,'note',$3)", [id, addDays(created, rnd(1, Math.max(1, ageDays))) + "T12:00:00Z", note]);
+      n++;
+    }
+  }
+  return n;
+}
+app.get("/admin", async (req, res) => {
+  const c = (await pool.query("SELECT count(*) FILTER (WHERE is_test) AS test, count(*) FILTER (WHERE NOT is_test) AS real FROM leads")).rows[0];
+  const host = req.headers.host;
+  res.send(page("Settings", `<h1>Settings</h1>
+  ${req.query.done ? `<div class="flash">${esc(req.query.done)}</div>` : ""}
+  <div class="panel"><h2>Test data</h2>
+  <p>There are <b>${c.test}</b> test records and <b>${c.real}</b> real records. Test records are marked "Test" and use example.com emails and 07700 900 phone numbers, which are reserved for fiction.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+  <form method="post" action="/admin/seed"><button>Add 32 test clients</button></form>
+  <form method="post" action="/admin/clear-test"><button class="btn ghost" style="border-color:var(--bad);color:var(--bad)">Delete all test data</button></form></div></div>
+  <div class="panel"><h2>Client progress page</h2>
+  <p>Clients can check their claim at <b>https://${esc(host)}/status</b> using their reference number, surname and the last 4 digits of their phone number. Set a custom update for each client on their record; otherwise they see the standard message for their stage.</p></div>`, { nav: "admin" }));
+});
+app.post("/admin/seed", async (req, res) => { const n = await seedTestData(); res.redirect("/admin?done=" + encodeURIComponent(`Added ${n} test clients.`)); });
+app.post("/admin/clear-test", async (req, res) => { const r = await pool.query("DELETE FROM leads WHERE is_test"); res.redirect("/admin?done=" + encodeURIComponent(`Deleted ${r.rowCount} test records.`)); });
 
 /* export */
 app.get("/export.csv", async (req, res) => {

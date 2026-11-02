@@ -187,6 +187,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <a class="plain" href="#how">How it works</a>
       <a class="plain" href="#fees">Fees</a>
       <a class="plain" href="#faq">Questions</a>
+      <a class="plain" href="https://missing-years-crm.onrender.com/status">Check your claim</a>
       <a class="phone" href="tel:0800999999"><span class="ph-num">0800 999 999</span><span class="ph-hrs">Free, weekdays 9am to 5pm</span></a>
       <button class="btn btn-ghost textsize" type="button" id="textSize" aria-pressed="false" aria-label="Make text larger">A<span style="font-size:1.25em">A</span></button>
       <a class="btn btn-primary" href="#check">Free check</a>
@@ -355,6 +356,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <details><summary>Can I claim myself without paying a fee?</summary><p>Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you.</p></details>
       <details><summary>Do I need any documents to start?</summary><p>No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it. If you prefer paper, we'll post everything to you.</p></details>
       <details><summary>Can I speak to someone?</summary><p>Yes. Call us free on 0800 999 999, weekdays 9am to 5pm, or request a call back at the end of the check.</p></details>
+      <details><summary>How can I check how my claim is going?</summary><p>Use the "Check your claim" page with your reference number, your surname and the last four digits of your phone number. You can also call us free on 0800 999 999.</p></details>
       <details><summary>How long does it take?</summary><p>HMRC currently has a large backlog. People are waiting between three and eleven months for a decision, and DWP pays arrears after that. We keep you updated throughout.</p></details>
       <details><summary>Will it affect my tax or benefits?</summary><p>Arrears are taxed as income for the years they relate to. A higher pension can also reduce means-tested benefits such as Pension Credit or Housing Benefit. We'll explain this before you decide, and Citizens Advice or Age UK can give free benefits advice.</p></details>
       <details><summary>Can I claim for a parent who has died?</summary><p>Yes. If your mother or another relative may have been affected, the person dealing with their estate can claim any arrears that were owed to them.</p></details>
@@ -367,6 +369,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     <p><strong style="color:var(--ink)">Missing Years</strong> · Call free on 0800 999 999, weekdays 9am to 5pm.</p>
     <p>Missing Years is a trading name of [company name], registered in England and Wales, company number [number], registered office [address]. Registered with HMRC as a tax agent and supervised by HMRC for anti-money laundering.</p>
     <p>* DWP management information: average arrears of £8,377 paid where an HRP underpayment was identified, 8 January 2024 to 31 March 2025. This is not a typical or guaranteed amount. Eligibility and outcomes depend on your circumstances.</p>
+    <p>Already a client? <a href="https://missing-years-crm.onrender.com/status">Check how your claim is going</a> with your reference number.</p>
     <p>We are not part of HMRC, DWP or the government. You can apply to HMRC yourself for free.</p>
   </footer>
 </main>
@@ -541,7 +544,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
     if(sent&&sent.ok){
-      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. You'll only be asked to sign anything once you're happy to go ahead.</p>`));
+      panel.append(el("div",{class:"note good"},`<p><strong>Your details have been sent.</strong> Your reference is ${sent.ref}. Keep it safe: you can use it to <a href="https://missing-years-crm.onrender.com/status">check your progress online</a> at any time. You'll only be asked to sign anything once you're happy to go ahead.</p>`));
     }else{
       panel.append(el("div",{class:"note"},`<p><strong>We couldn't send your details just now.</strong> ${sent&&sent.error?sent.error:"Please call us free on 0800 999 999, weekdays 9am to 5pm, and we'll take them over the phone."}</p>`));
       const retry=el("button",{type:"button",class:"btn btn-primary"},"Try sending again");
