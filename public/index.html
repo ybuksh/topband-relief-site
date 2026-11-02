@@ -7,6 +7,14 @@
 <title>Missing Years Pension Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Check whether missing Home Responsibilities Protection or another error means your State Pension has been underpaid. Free to check, no win no fee.">
+<meta property="og:title" content="Claimed Child Benefit between 1978 and 2010? Check your State Pension">
+<meta property="og:description" content="Free 60-second check for missing Home Responsibilities Protection and other State Pension underpayments. No win, no fee.">
+<meta property="og:type" content="website">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Can I claim missing HRP myself without paying a fee?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you."}},
+{"@type":"Question","name":"Do I need any documents to start?","acceptedAnswer":{"@type":"Answer","text":"No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it."}},
+{"@type":"Question","name":"How long does a claim take?","acceptedAnswer":{"@type":"Answer","text":"HMRC has a large backlog. Most claims take 6 to 12 months from submission to payment."}},
+{"@type":"Question","name":"Can I claim for a parent who has died?","acceptedAnswer":{"@type":"Answer","text":"Yes. The person dealing with their estate can claim any arrears that were owed to them."}}]}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap">
 <style>
@@ -58,6 +66,21 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .btn-primary:hover{filter:brightness(1.08)}
 .btn-ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
 .btn-ghost:hover{border-color:var(--muted)}
+.textsize{min-height:44px;padding:8px 12px}
+html.big body{font-size:21px}
+.hero-q{background:var(--paper);border:2px solid var(--accent);border-radius:16px;padding:18px 20px;display:grid;gap:12px}
+.hero-q p{font-weight:700;font-size:1.1rem}
+.hero-q .opts3{display:flex;flex-wrap:wrap;gap:10px}
+.hero-q .opts3 .btn{flex:1 1 120px}
+.trust{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding-block:22px;border-top:1px solid var(--line)}
+@media (max-width:880px){.trust{grid-template-columns:1fr 1fr}}
+@media (max-width:460px){.trust{grid-template-columns:1fr}}
+.trust div{display:flex;gap:10px;align-items:flex-start;font-size:.95rem}
+.trust b{display:block}
+.trust .ic{flex:none;width:28px;height:28px;border-radius:50%;background:var(--good-tint);color:var(--good);display:grid;place-items:center;font-weight:700}
+.helping{display:grid;grid-template-columns:1fr 1fr;gap:28px;align-items:center}
+@media (max-width:820px){.helping{grid-template-columns:1fr}}
+.helping ul{margin:0;padding-left:22px;display:grid;gap:8px}
 
 .hero{display:grid;grid-template-columns:1.1fr .9fr;gap:44px;padding-block:52px 44px;align-items:start}
 @media (max-width:880px){.hero{grid-template-columns:1fr;gap:28px;padding-block:32px 28px}}
@@ -156,7 +179,8 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <a class="plain" href="#how">How it works</a>
       <a class="plain" href="#fees">Fees</a>
       <a class="plain" href="#faq">Questions</a>
-      <a class="btn btn-primary" href="#check">Check now</a>
+      <button class="btn btn-ghost textsize" type="button" id="textSize" aria-pressed="false" aria-label="Make text larger">A<span style="font-size:1.25em">A</span></button>
+      <a class="btn btn-primary" href="#check">Free check</a>
     </nav>
   </div>
 </header>
@@ -165,16 +189,20 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   <section class="hero">
     <div class="hero-copy">
       <span class="eyebrow">State Pension underpayment check</span>
-      <h1>Did you claim Child Benefit before 2000? Your State Pension may be missing years.</h1>
-      <p class="lede">A government records error left many parents and carers without the Home Responsibilities Protection they were entitled to between 1978 and 2010. That can mean a lower State Pension today. We check your record and make the claim for you.</p>
+      <h1>Claimed Child Benefit between 1978 and 2010? Your State Pension may have been underpaid.</h1>
+      <p class="lede">A government records error left many mothers and carers without the Home Responsibilities Protection they were entitled to. Most people affected are women aged 67 and over who have been receiving their State Pension for a while. We check your record and make the claim for you.</p>
       <ul class="ticks">
         <li>60-second check</li>
         <li>Free to find out</li>
         <li>No win, no fee</li>
       </ul>
-      <div class="ctas">
-        <a class="btn btn-primary" href="#check">Start my free check</a>
-        <a class="btn btn-ghost" href="#who">Am I affected?</a>
+      <div class="hero-q" role="group" aria-labelledby="hq">
+        <p id="hq">Start here: did you receive Child Benefit for any children between 1978 and 2010?</p>
+        <div class="opts3">
+          <button class="btn btn-primary" type="button" data-cb="yes">Yes</button>
+          <button class="btn btn-ghost" type="button" data-cb="no">No</button>
+          <button class="btn btn-ghost" type="button" data-cb="unsure">Not sure</button>
+        </div>
       </div>
       <p class="small">Where DWP found an HRP underpayment, it paid an average of <strong class="num">£8,377</strong> in arrears (January 2024 to March 2025).* Every case is different and amounts are not guaranteed.</p>
     </div>
@@ -198,6 +226,13 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <p class="small">Illustration only. Your own record may look different.</p>
     </aside>
   </section>
+
+  <div class="trust" aria-label="Our promises">
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>No documents to start</b>We gather the evidence for you</span></div>
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>Paper forms if you prefer</b>Sign online or by post</span></div>
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>Never your bank details</b>No card, PIN or upfront payment</span></div>
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>14 days to change your mind</b>Cancel at no cost</span></div>
+  </div>
 
   <section class="block" id="who" aria-labelledby="who-t">
     <div class="section-head">
@@ -224,6 +259,22 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     </ul>
   </section>
 
+  <section class="block" id="helping" aria-labelledby="help-t">
+    <div class="helping">
+      <div class="section-head">
+        <span class="eyebrow">Helping a parent?</span>
+        <h2 id="help-t">Many checks are started by a son or daughter</h2>
+        <p>If your mum raised children before 2000, she may be owed money, even if she has died. You can start the check for her and we'll speak to you both.</p>
+      </div>
+      <ul>
+        <li>Answer the questions on her behalf; it takes about a minute</li>
+        <li>We'll call at a time that suits you both, and post paper copies if she prefers</li>
+        <li>If she has died, the person dealing with her estate can claim the arrears</li>
+        <li><a href="#check" data-for="help">Start a check for a parent</a></li>
+      </ul>
+    </div>
+  </section>
+
   <section class="block" id="how" aria-labelledby="how-t">
     <div class="section-head">
       <span class="eyebrow">How it works</span>
@@ -233,7 +284,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <li><h3>Check</h3><p>Answer a few simple questions about your family, work and pension. It takes about a minute.</p></li>
       <li><h3>Consider</h3><p>We call you, look at your National Insurance record and explain what may be missing.</p></li>
       <li><h3>Claim</h3><p>With your permission, we prepare the forms and evidence and send your claim to HMRC.</p></li>
-      <li><h3>Collect</h3><p>If your record is corrected, DWP pays any arrears straight to you and increases your weekly pension.</p></li>
+      <li><h3>Collect</h3><p>If your record is corrected, DWP pays any arrears straight to you and increases your weekly pension. This usually takes 6 to 12 months because of HMRC's backlog.</p></li>
     </ol>
   </section>
 
@@ -294,6 +345,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     <div class="faq">
       <details><summary>Is this a scam?</summary><p>No. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost.</p></details>
       <details><summary>Can I claim myself without paying a fee?</summary><p>Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you.</p></details>
+      <details><summary>Do I need any documents to start?</summary><p>No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it. If you prefer paper, we'll post everything to you.</p></details>
       <details><summary>How long does it take?</summary><p>HMRC currently has a large backlog. People are waiting between three and eleven months for a decision, and DWP pays arrears after that. We keep you updated throughout.</p></details>
       <details><summary>Will it affect my tax or benefits?</summary><p>Arrears are taxed as income for the years they relate to. A higher pension can also reduce means-tested benefits such as Pension Credit or Housing Benefit. We'll explain this before you decide, and Citizens Advice or Age UK can give free benefits advice.</p></details>
       <details><summary>Can I claim for a parent who has died?</summary><p>Yes. If your mother or another relative may have been affected, the person dealing with their estate can claim any arrears that were owed to them.</p></details>
@@ -335,19 +387,20 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   const A={};
   const years=[];for(let y=1975;y>=1925;y--)years.push(String(y));
   const steps=[
-    {id:"for",q:"Who is this check for?",
-     opts:[["me","Myself"],["help","Someone I'm helping, such as a parent"],["died","Someone who has died","Their estate may still be owed arrears"]]},
     {id:"cb",q:"Did you (or they) receive Child Benefit, or Family Allowance, for any children between 1978 and 2010?",
      opts:[["yes","Yes"],["partner","No, my partner claimed it but I looked after the children"],["no","No"],["unsure","Not sure"]]},
     {id:"care",q:"Between 1978 and 2010, did you care for someone sick or disabled, or foster a child?",when:()=>A.cb==="no",
      opts:[["yes","Yes"],["no","No"]],
      stop:{no:"HRP was mainly for parents receiving Child Benefit and for carers, so it doesn't look as though missing HRP applies. If you're married, widowed, divorced or over 80, a different underpayment may still apply. Go back and choose \"Not sure\" if you'd like us to check."}},
+    {id:"for",q:"Who is this check for?",
+     opts:[["me","Myself"],["help","Someone I'm helping, such as a parent"],["died","Someone who has died","Their estate may still be owed arrears"]]},
+    {id:"pension",q:"How much State Pension do you (or they) receive?",help:"Your annual letter from the Pension Service shows this. An estimate is fine.",
+     opts:[["less","Less than the full State Pension"],["full","The full State Pension"],["none","Not receiving it yet"],["unsure","Not sure"]],
+     stop:{full:"If you already receive the full State Pension, missing years shouldn't have reduced it, so there's unlikely to be anything to claim.",
+           none:"Because your State Pension hasn't started, there are no arrears to claim yet. It's still worth fixing your record now so your pension is right from the start. You can do this free at GOV.UK by searching \"Home Responsibilities Protection\". We only charge on backdated arrears, so we wouldn't charge you anything for this."}},
     {id:"born",q:"What year were you (or they) born?",select:years,help:"This tells us which State Pension rules apply."},
     {id:"status",q:"What is your (or their) marital status?",
      opts:[["married","Married or in a civil partnership"],["widowed","Widowed"],["divorced","Divorced or dissolved"],["single","Single"]]},
-    {id:"pension",q:"How much State Pension do you (or they) receive?",
-     opts:[["less","Less than the full State Pension"],["full","The full State Pension"],["none","Not receiving it yet"],["unsure","Not sure"]],
-     stop:{full:"If you already receive the full State Pension, missing years shouldn't have reduced it, so there's unlikely to be anything to claim."}},
     {id:"credit",q:"Do you (or they) receive Pension Credit?",help:"A higher State Pension can change Pension Credit. We'll explain this before you decide.",
      opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]]},
     {id:"contact",contact:true}
@@ -397,7 +450,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   function renderStop(msg){
     panel.innerHTML="";
     panel.append(el("span",{class:"eyebrow"},"Your answer"));
-    panel.append(el("h3",{},"It doesn't look as though we can help with this"));
+    panel.append(el("h3",{},A.pension==="none"&&steps[idx].id==="pension"?"There's nothing to claim back yet":"It doesn't look as though we can help with this"));
     panel.append(el("div",{class:"note"},`<p>${msg}</p>`));
     const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
@@ -416,13 +469,14 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <div class="field"><label for="ln">Last name</label><input id="ln" autocomplete="family-name"><span class="err" id="lnErr"></span></div>
       <div class="field"><label for="mn">Maiden or previous surname <span class="small">(optional)</span></label><input id="mn"><span class="hint">Helps HMRC find older records</span></div>
       <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><span class="err" id="emErr"></span></div>
-      <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="err" id="phErr"></span></div>
+      <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint">Mobile or landline</span><span class="err" id="phErr"></span></div>
+      <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Early evening, 5pm to 7pm</option></select><span class="err" id="btErr"></span></div>
     </div>
     <label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
     <span class="err" id="okErr"></span>
     <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
     panel.append(f);
-    ["ti","fn","ln","mn","em","ph"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
+    ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
     f.querySelector("#ok").checked=!!A.ok;
     f.querySelector("#ok").addEventListener("change",()=>{f.querySelector("#okErr").textContent="";});
     f.querySelector("#back").onclick=prev;
@@ -435,9 +489,10 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       set("ln",v("ln")?"":"Enter your last name");
       set("em",/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address, like name@example.com");
       set("ph",/^(\+44\s?|0)\d[\d\s]{8,12}$/.test(v("ph"))?"":"Enter a UK phone number, like 07700 900123 or 0161 496 0000");
+      set("bt",v("bt")?"":"Choose a time for us to call");
       set("ok",f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your check");
       if(bad)return;
-      ["ti","fn","ln","mn","em","ph"].forEach(k=>A[k]=v(k));A.ok=true;
+      ["ti","fn","ln","mn","em","ph","bt"].forEach(k=>A[k]=v(k));A.ok=true;
       idx=steps.length;render();focusPanel();
     });
   }
@@ -456,7 +511,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     panel.append(el("p",{},"Based on your answers, these are the checks we would carry out:"));
     panel.append(el("ul",{style:"margin:0;padding-left:22px;display:grid;gap:6px"},checks.map(c=>`<li>${c}</li>`).join("")));
     const notes=[];
-    notes.push("<strong>What happens next:</strong> one of our team will call you within one working day to go through your record. There's nothing to pay and no obligation.");
+    notes.push(`<strong>What happens next:</strong> one of our team will call you within one working day, in the ${A.bt.split(",")[0].toLowerCase()}, to go through your record. There's nothing to pay and no obligation.`);
     if(A.credit!=="no")notes.push("Because you may receive Pension Credit, we'll explain how a higher State Pension could affect it before you decide.");
     if(A.pension==="none")notes.push("As the State Pension hasn't started yet, correcting the record now could mean a higher pension from the start.");
     panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
@@ -473,6 +528,14 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     };
     row.append(back,go);panel.append(row);
   }
+  document.querySelectorAll("[data-cb]").forEach(b=>b.addEventListener("click",()=>{
+    A.cb=b.dataset.cb; idx=0; next();
+    document.getElementById("check").scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"});
+  }));
+  document.querySelectorAll("[data-for]").forEach(a=>a.addEventListener("click",()=>{A.for=a.dataset.for;}));
+  const ts=document.getElementById("textSize");
+  try{if(localStorage.getItem("bigText")==="1"){document.documentElement.classList.add("big");ts.setAttribute("aria-pressed","true");}}catch(e){}
+  ts.addEventListener("click",()=>{const on=document.documentElement.classList.toggle("big");ts.setAttribute("aria-pressed",String(on));ts.setAttribute("aria-label",on?"Make text smaller":"Make text larger");try{localStorage.setItem("bigText",on?"1":"0");}catch(e){}});
   function focusPanel(){const h=panel.querySelector("h3");if(h){h.setAttribute("tabindex","-1");h.focus({preventScroll:true});}}
   render();
 })();
