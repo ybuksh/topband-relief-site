@@ -68,6 +68,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .btn-ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
 .btn-ghost:hover{border-color:var(--muted)}
 .textsize{min-height:44px;padding:8px 12px}
+.phone{display:flex;flex-direction:column;align-items:flex-end;text-decoration:none;color:var(--ink);line-height:1.2}
+.ph-num{font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums}
+.ph-hrs{font-size:.78rem;color:var(--muted)}
+@media (max-width:560px){.ph-hrs{display:none}.textsize{display:none}}
 html.big body{font-size:22px}
 .hero-q{background:var(--paper);border:2px solid var(--accent);border-radius:16px;padding:18px 20px;display:grid;gap:12px}
 .hero-q p{font-weight:700;font-size:1.1rem}
@@ -183,6 +187,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <a class="plain" href="#how">How it works</a>
       <a class="plain" href="#fees">Fees</a>
       <a class="plain" href="#faq">Questions</a>
+      <a class="phone" href="tel:0800999999"><span class="ph-num">0800 999 999</span><span class="ph-hrs">Free, weekdays 9am to 5pm</span></a>
       <button class="btn btn-ghost textsize" type="button" id="textSize" aria-pressed="false" aria-label="Make text larger">A<span style="font-size:1.25em">A</span></button>
       <a class="btn btn-primary" href="#check">Free check</a>
     </nav>
@@ -233,7 +238,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
 
   <div class="trust" aria-label="Our promises">
     <div><span class="ic" aria-hidden="true">✓</span><span><b>No documents to start</b>We gather the evidence for you</span></div>
-    <div><span class="ic" aria-hidden="true">✓</span><span><b>Paper forms if you prefer</b>Sign online or by post</span></div>
+    <div><span class="ic" aria-hidden="true">✓</span><span><b>HMRC-registered tax agent</b>Supervised by HMRC for anti-money laundering</span></div>
     <div><span class="ic" aria-hidden="true">✓</span><span><b>Never your bank details</b>No card, PIN or upfront payment</span></div>
     <div><span class="ic" aria-hidden="true">✓</span><span><b>14 days to change your mind</b>Cancel at no cost</span></div>
   </div>
@@ -346,19 +351,21 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <h2 id="faq-t">Common questions</h2>
     </div>
     <div class="faq">
-      <details><summary>Is this a scam?</summary><p>No. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost.</p></details>
+      <details><summary>Is this a scam?</summary><p>No. We are a registered HMRC tax agent, supervised by HMRC for anti-money laundering. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost.</p></details>
       <details><summary>Can I claim myself without paying a fee?</summary><p>Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you.</p></details>
       <details><summary>Do I need any documents to start?</summary><p>No. You can start with a few answers. We gather the evidence HMRC needs, and only ask for ID if our electronic check can't confirm it. If you prefer paper, we'll post everything to you.</p></details>
+      <details><summary>Can I speak to someone?</summary><p>Yes. Call us free on 0800 999 999, weekdays 9am to 5pm, or request a call back at the end of the check.</p></details>
       <details><summary>How long does it take?</summary><p>HMRC currently has a large backlog. People are waiting between three and eleven months for a decision, and DWP pays arrears after that. We keep you updated throughout.</p></details>
       <details><summary>Will it affect my tax or benefits?</summary><p>Arrears are taxed as income for the years they relate to. A higher pension can also reduce means-tested benefits such as Pension Credit or Housing Benefit. We'll explain this before you decide, and Citizens Advice or Age UK can give free benefits advice.</p></details>
       <details><summary>Can I claim for a parent who has died?</summary><p>Yes. If your mother or another relative may have been affected, the person dealing with their estate can claim any arrears that were owed to them.</p></details>
       <details><summary>Is the fee charged on my weekly pension increase?</summary><p>No. We only charge on the backdated arrears you actually receive. The increase to your weekly pension is yours in full.</p></details>
-      <details><summary>Are you part of HMRC or DWP?</summary><p>No. We are an independent company acting as your agent. We are not part of, or endorsed by, HMRC, DWP or the government.</p></details>
+      <details><summary>Are you part of HMRC or DWP?</summary><p>No. We are an independent company registered with HMRC as a tax agent, acting on your behalf. We are not part of, or endorsed by, HMRC, DWP or the government.</p></details>
     </div>
   </section>
 
   <footer>
-    <p><strong style="color:var(--ink)">Missing Years</strong> is a working name. Company number, registered address, phone number and HMRC agent details will be added before launch.</p>
+    <p><strong style="color:var(--ink)">Missing Years</strong> · Call free on 0800 999 999, weekdays 9am to 5pm.</p>
+    <p>Missing Years is a trading name of [company name], registered in England and Wales, company number [number], registered office [address]. Registered with HMRC as a tax agent and supervised by HMRC for anti-money laundering.</p>
     <p>* DWP management information: average arrears of £8,377 paid where an HRP underpayment was identified, 8 January 2024 to 31 March 2025. This is not a typical or guaranteed amount. Eligibility and outcomes depend on your circumstances.</p>
     <p>We are not part of HMRC, DWP or the government. You can apply to HMRC yourself for free.</p>
   </footer>
@@ -473,7 +480,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <div class="field"><label for="mn">Maiden or previous surname <span class="small">(optional)</span></label><input id="mn"><span class="hint">Helps HMRC find older records</span></div>
       <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><span class="err" id="emErr"></span></div>
       <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint">Mobile or landline</span><span class="err" id="phErr"></span></div>
-      <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Early evening, 5pm to 7pm</option></select><span class="err" id="btErr"></span></div>
+      <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Any time, 9am to 5pm</option></select><span class="err" id="btErr"></span></div>
     </div>
     <label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
     <span class="err" id="okErr"></span>
@@ -514,7 +521,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     panel.append(el("p",{},"Based on your answers, these are the checks we would carry out:"));
     panel.append(el("ul",{style:"margin:0;padding-left:22px;display:grid;gap:6px"},checks.map(c=>`<li>${c}</li>`).join("")));
     const notes=[];
-    notes.push(`<strong>What happens next:</strong> one of our team will call you within one working day, in the ${A.bt.split(",")[0].toLowerCase()}, to go through your record. There's nothing to pay and no obligation.`);
+    notes.push(`<strong>What happens next:</strong> one of our team will call you within one working day, ${A.bt.startsWith("Any")?"between 9am and 5pm":"in the "+A.bt.split(",")[0].toLowerCase()}, to go through your record. There's nothing to pay and no obligation.`);
     if(A.credit!=="no")notes.push("Because you may receive Pension Credit, we'll explain how a higher State Pension could affect it before you decide.");
     if(A.pension==="none")notes.push("As the State Pension hasn't started yet, correcting the record now could mean a higher pension from the start.");
     panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
