@@ -184,6 +184,7 @@ async function initDb() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS last_reminder DATE;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS plan_note TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS pay_method TEXT;
+    ${require("./esign").INIT_SQL}
     UPDATE leads SET kyc = 'passed' WHERE kyc = 'pending' AND signed_at IS NOT NULL AND stage = ANY(ARRAY['preparing','submitted','decision','invoiced','paid']);
   `);
 }
@@ -276,11 +277,12 @@ for (const m of ["get", "post"]) {
   const orig = app[m].bind(app);
   app[m] = (path, ...hs) => hs.length ? orig(path, ...hs.map(h => (req, res, next) => { try { const r = h(req, res, next); if (r && r.catch) r.catch(next); } catch (e) { next(e); } })) : orig(path);
 }
-app.use(express.urlencoded({ extended: false, limit: "50kb" }));
+app.use(express.urlencoded({ extended: false, limit: "400kb" }));
 app.use("/api", express.json({ limit: "20kb" }));
 
 app.get("/healthz", (req, res) => res.send("ok"));
 
+const ES = require("./esign")({ pool, log, page, esc, fmtDate, iso, today, addDays, validNi, requestYears, sendEmail, BRAND, PHONE, SESSION_SECRET, clip });
 if (!pool || !ADMIN_PASSWORD) {
   app.use((req, res) => res.status(503).send(page("Setup needed", `<div class="panel"><h1>Almost ready</h1>
   <p>Add these settings in Render, under this service's <b>Environment</b> tab, then the CRM will start:</p>
@@ -373,6 +375,9 @@ app.post("/status", async (req, res) => {
     <a class="btn ghost" href="/status">Check another claim</a>`));
 });
 
+/* public: e-signing */
+ES.publicRoutes(app);
+
 /* login */
 app.get("/login", (req, res) => res.send(page("Log in", `<form class="panel" method="post" action="/login" style="max-width:360px;margin:40px auto">
 <h1>${esc(BRAND)} CRM</h1>${req.query.e ? `<p class="pill bad">That password didn't match. Try again.</p>` : ""}
@@ -392,6 +397,7 @@ app.get("/logout", (req, res) => { res.set("Set-Cookie", "s=; HttpOnly; Secure; 
 
 app.use(requireAuth);
 app.use(sameOrigin);
+ES.staffRoutes(app);
 
 /* pipeline board */
 app.get("/", async (req, res) => {
@@ -491,6 +497,7 @@ const opt = (obj, cur) => Object.entries(obj).map(([k, v]) => `<option value="${
 app.get("/lead/:id", async (req, res) => {
   const L = await getLead(req.params.id); if (!L) return res.status(404).send(page("Not found", "<p>No such client.</p>"));
   const acts = (await pool.query("SELECT * FROM activity WHERE lead_id=$1 ORDER BY at DESC", [L.id])).rows;
+  const esignPanel = await ES.leadPanel(L);
   const fee = L.fee != null ? Number(L.fee) : null, vat = L.vat != null ? Number(L.vat) : null;
   const net = L.arrears != null ? Number(L.arrears) - Number(L.deductions || 0) : null;
   const coolingEnds = L.signed_at ? addDays(iso(L.signed_at), 14) : null;
@@ -533,6 +540,7 @@ app.get("/lead/:id", async (req, res) => {
       <div class="panel"><h2>History</h2><div class="log">${acts.map(a => `<div><small>${new Date(a.at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${esc(a.kind)}</small><br>${esc(a.text)}</div>`).join("")}</div></div>
     </div>
     <div style="display:grid;gap:18px">
+      ${esignPanel}
       <div class="panel"><h2>Contact</h2><dl>
         <dt>Phone</dt><dd class="num">${esc(L.phone)}</dd><dt>Email</dt><dd>${esc(L.email)}</dd>
         <dt>Best time</dt><dd>${esc(L.best_time)}</dd><dt>Maiden name</dt><dd>${esc(L.maiden_name)}</dd>
@@ -550,9 +558,12 @@ app.get("/lead/:id", async (req, res) => {
         <div class="grid2">
           <label>NI number <input name="ni_number" value="${esc(fmtNi(L.ni_number))}" autocapitalize="characters">${L.ni_number && !validNi(L.ni_number) ? `<small style="color:var(--bad)">Doesn't look valid</small>` : ""}</label>
           <label>ID check <select name="kyc">${opt(KYC, L.kyc)}</select></label>
+          <label>Date of birth <input type="date" name="dob" value="${iso(L.dob)}"></label>
+          <label>Postcode <input name="postcode" value="${esc(L.postcode)}" autocapitalize="characters"></label>
           <label>Child Benefit from (tax year) <input name="cb_from" inputmode="numeric" placeholder="${L.kid1 || "e.g. 1981"}" value="${L.cb_from ?? ""}"></label>
           <label>Child Benefit to (tax year) <input name="cb_to" inputmode="numeric" placeholder="${L.kid2 ? Number(L.kid2) + 15 : "e.g. 1996"}" value="${L.cb_to ?? ""}"></label>
         </div>
+        <label>Address (first line, town) <input name="address" value="${esc(L.address)}" style="width:100%" placeholder="e.g. 12 Acacia Avenue, Stockport"></label>
         <label>Full-time tax years (start year, e.g. 1979, 1980, 1995) <input name="ft_years" value="${esc(ftList.join(", "))}" style="width:100%"></label>
         <div class="note" style="background:var(--tint);border-radius:8px;padding:10px 12px">
           <b>Tax years to request from HMRC</b><br>${reqYears ? (reqYears.length ? esc(yearRanges(reqYears)) + ` <small class="muted">(${reqYears.length} years)</small>` : "None: every Child Benefit year was full time") : `<span class="muted">Enter the Child Benefit years (or children's birth years) to work this out.</span>`}
@@ -633,8 +644,10 @@ app.post("/lead/:id/case", async (req, res) => {
   const b = req.body, yr = v => { const n = parseInt(v, 10); return n >= 1978 && n <= 2009 ? n : null; };
   const kyc = KYC[b.kyc] ? b.kyc : L.kyc;
   const ni = normNi(b.ni_number) || null, pni = normNi(b.partner_ni) || null;
-  await pool.query(`UPDATE leads SET ni_number=$2, kyc=$3, cb_from=$4, cb_to=$5, ft_years=$6, partner_name=$7, partner_ni=$8, partner_unknown=$9, updated_at=now() WHERE id=$1`,
-    [L.id, ni, kyc, yr(b.cb_from), yr(b.cb_to), parseYears(b.ft_years).join(",") || null, clip(b.partner_name, 120) || null, pni, clip(b.partner_unknown, 300) || null]);
+  const dob = /^\d{4}-\d{2}-\d{2}$/.test(b.dob || "") ? b.dob : null;
+  await pool.query(`UPDATE leads SET ni_number=$2, kyc=$3, cb_from=$4, cb_to=$5, ft_years=$6, partner_name=$7, partner_ni=$8, partner_unknown=$9, dob=$10, address=$11, postcode=$12, updated_at=now() WHERE id=$1`,
+    [L.id, ni, kyc, yr(b.cb_from), yr(b.cb_to), parseYears(b.ft_years).join(",") || null, clip(b.partner_name, 120) || null, pni, clip(b.partner_unknown, 300) || null, dob, clip(b.address, 300) || null, clip(b.postcode, 10).toUpperCase() || null]);
+  if (dob && L.born && Number(dob.slice(0, 4)) !== Number(L.born)) await log(L.id, "check", `Date of birth year (${dob.slice(0, 4)}) doesn't match the year of birth given in the check (${L.born}).`);
   if (kyc !== L.kyc) {
     await log(L.id, "kyc", `ID check: ${KYC[kyc]}`);
     if (kyc === "passed" && L.stage === "signed") await pool.query("UPDATE leads SET next_action=$2, next_action_date=$3 WHERE id=$1", [L.id, "Invite the client to share their NI record (optional), and send the DWP information request", today()]);
@@ -751,6 +764,7 @@ app.get("/admin", async (req, res) => {
   <div style="display:flex;gap:10px;flex-wrap:wrap">
   <form method="post" action="/admin/seed"><button>Add ${PLAN.reduce((a, p) => a + p[1], 0)} test clients</button></form>
   <form method="post" action="/admin/clear-test"><button class="btn ghost" style="border-color:var(--bad);color:var(--bad)">Delete all test data</button></form></div></div>
+  ${await ES.firmForm()}
   <div class="panel"><h2>Client progress page</h2>
   <p>Clients can check their claim at <b>https://${esc(host)}/status</b> using their reference number, surname and the last 4 digits of their phone number. Set a custom update for each client on their record; otherwise they see the standard message for their stage.</p></div>`, { nav: "admin" }));
 });
@@ -760,7 +774,7 @@ app.post("/admin/clear-test", async (req, res) => { const r = await pool.query("
 /* export */
 app.get("/export.csv", async (req, res) => {
   const { rows } = await pool.query("SELECT * FROM leads ORDER BY id");
-  const cols = ["id", "created_at", "stage", "source", "title", "first_name", "last_name", "maiden_name", "phone", "email", "best_time", "born", "cb", "care", "for_whom", "pension", "marital", "credit", "consent", "next_action", "next_action_date", "signed_at", "submitted_at", "decision_at", "arrears", "fee", "vat", "invoice_date", "invoice_due", "paid_at", "ni_number", "kid1", "kid2", "cb_from", "cb_to", "ft", "ft_years", "kyc", "partner_name", "partner_ni", "partner_unknown", "deductions", "arrears_letter", "reminders", "last_reminder", "pay_method", "plan_note", "dup_of", "is_test"];
+  const cols = ["id", "created_at", "stage", "source", "title", "first_name", "last_name", "maiden_name", "phone", "email", "best_time", "born", "cb", "care", "for_whom", "pension", "marital", "credit", "consent", "next_action", "next_action_date", "signed_at", "submitted_at", "decision_at", "arrears", "fee", "vat", "invoice_date", "invoice_due", "paid_at", "ni_number", "kid1", "kid2", "cb_from", "cb_to", "ft", "ft_years", "kyc", "partner_name", "partner_ni", "partner_unknown", "deductions", "arrears_letter", "reminders", "last_reminder", "pay_method", "plan_note", "dup_of", "is_test", "dob", "address", "postcode"];
   const cell = v => { let s = v instanceof Date ? v.toISOString() : String(v ?? ""); if (/^[=+\-@]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   res.set("Content-Type", "text/csv; charset=utf-8");
   res.set("Content-Disposition", `attachment; filename="crm-export-${today()}.csv"`);
