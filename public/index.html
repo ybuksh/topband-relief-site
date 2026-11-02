@@ -4,171 +4,157 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>TopBand Relief</title>
+<title>Missing Years Pension Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Check whether missing Home Responsibilities Protection or another error means your State Pension has been underpaid. Free to check, no win no fee.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Literata:opsz,wght@7..72,500;7..72,700&display=swap">
 <style>
-/* Layout: payslip-ledger feel — a tax-band ruler as the hero thesis, then checker, fees, FAQ in a single 1080px column */
+/* Layout: one calm reading column for an older audience; the hero shows an example NI record 1978–2010 with the missing years filled in */
 :root{
-  --bg:#F3F6F4; --paper:#FFFFFF; --ink:#13201B; --muted:#55645E; --line:#D5DED9;
-  --accent:#0E6A50; --accent-ink:#FFFFFF; --tint:#DDEFE6; --band:#E9EFEC; --warn:#9A5B12; --warn-tint:#FBEEDB; --danger:#A3302A;
-  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --body:"Public Sans", "Segoe UI", system-ui, sans-serif;
-  --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --bg:#FBFAFC; --paper:#FFFFFF; --ink:#221A26; --muted:#5B5160; --line:#DDD5E1;
+  --accent:#6B3E75; --accent-ink:#FFFFFF; --tint:#F0E7F3; --gap:#E8DFD0; --gap-ink:#7A5B26; --good:#2F6B4F; --good-tint:#E3F1E9; --danger:#A3302A;
+  --display:"Literata", Georgia, "Times New Roman", serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", Verdana, sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0E1513; --paper:#16201D; --ink:#E6EEEA; --muted:#9AABA4; --line:#2A3833;
-  --accent:#4CC69C; --accent-ink:#0B1A15; --tint:#173A2F; --band:#1C2925; --warn:#E6A55B; --warn-tint:#3A2A16; --danger:#F08A82; color-scheme:dark}}
+  --bg:#151018; --paper:#1E1722; --ink:#F1EBF3; --muted:#B7AABD; --line:#3A2F40;
+  --accent:#C99BD4; --accent-ink:#1A1020; --tint:#33243A; --gap:#3B3220; --gap-ink:#E8C98E; --good:#7FD1A6; --good-tint:#1D3329; --danger:#F08A82; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0E1513; --paper:#16201D; --ink:#E6EEEA; --muted:#9AABA4; --line:#2A3833;
-  --accent:#4CC69C; --accent-ink:#0B1A15; --tint:#173A2F; --band:#1C2925; --warn:#E6A55B; --warn-tint:#3A2A16; --danger:#F08A82; color-scheme:dark}
+  --bg:#151018; --paper:#1E1722; --ink:#F1EBF3; --muted:#B7AABD; --line:#3A2F40;
+  --accent:#C99BD4; --accent-ink:#1A1020; --tint:#33243A; --gap:#3B3220; --gap-ink:#E8C98E; --good:#7FD1A6; --good-tint:#1D3329; --danger:#F08A82; color-scheme:dark}
 *{box-sizing:border-box}
-body{margin:0}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:18px;line-height:1.65;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
 [hidden]{display:none!important}
 img{max-width:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;
-  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
-.wrap{max-width:1080px;margin:0 auto}
-h1,h2,h3{font-family:var(--display);line-height:1.1;text-wrap:balance;margin:0}
-h1{font-size:clamp(2.1rem,5vw,3.6rem);font-weight:700;letter-spacing:-.02em}
-h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:700;letter-spacing:-.01em}
-h3{font-size:1.15rem;font-weight:500}
-p{margin:0;max-width:65ch}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
-.eyebrow{font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.wrap{max-width:1040px;margin:0 auto}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0;font-weight:700}
+h1{font-size:clamp(2.1rem,5vw,3.3rem)}
+h2{font-size:clamp(1.6rem,3.4vw,2.25rem)}
+h3{font-size:1.25rem}
+p{margin:0;max-width:62ch}
 a{color:var(--accent)}
 button,input,select{font:inherit;color:inherit}
-:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.eyebrow{font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--accent)}
+.small{font-size:.92rem;color:var(--muted)}
+.num{font-variant-numeric:tabular-nums}
 
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
-.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.15rem;text-decoration:none;color:var(--ink)}
-.logo-mark{width:28px;height:28px;border-radius:6px;background:var(--accent);position:relative;overflow:hidden}
-.logo-mark::before,.logo-mark::after{content:"";position:absolute;left:5px;right:5px;height:3px;background:var(--accent-ink);border-radius:2px}
-.logo-mark::before{top:8px}.logo-mark::after{top:16px;right:12px}
+.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.2rem;color:var(--ink);text-decoration:none}
+.logo-mark{display:grid;grid-template-columns:repeat(3,7px);gap:3px}
+.logo-mark i{width:7px;height:7px;border-radius:2px;background:var(--accent)}
+.logo-mark i:nth-child(5){background:var(--gap)}
 .links{display:flex;gap:22px;align-items:center}
-.links a.plain{color:var(--muted);text-decoration:none;font-weight:500;font-size:.95rem}
+.links a.plain{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
 .links a.plain:hover{color:var(--ink)}
-@media (max-width:720px){.links a.plain{display:none}}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:10px;padding:12px 20px;font-weight:600;cursor:pointer;text-decoration:none;transition:transform .15s ease,background .15s}
+@media (max-width:760px){.links a.plain{display:none}}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:12px;padding:14px 22px;font-weight:700;font-size:1.05rem;cursor:pointer;text-decoration:none;min-height:52px}
 .btn-primary{background:var(--accent);color:var(--accent-ink)}
-.btn-primary:hover{transform:translateY(-1px)}
-.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
 .btn-ghost:hover{border-color:var(--muted)}
 
-/* hero */
-.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;padding-block:56px 40px;align-items:start}
-@media (max-width:880px){.hero{grid-template-columns:1fr;gap:28px;padding-block:36px 24px}}
+.hero{display:grid;grid-template-columns:1.1fr .9fr;gap:44px;padding-block:52px 44px;align-items:start}
+@media (max-width:880px){.hero{grid-template-columns:1fr;gap:28px;padding-block:32px 28px}}
 .hero-copy{display:flex;flex-direction:column;gap:20px;min-width:0}
 .hero-copy .lede{font-size:1.15rem;color:var(--muted)}
-.hero-copy h1 em{font-style:normal;color:var(--accent)}
-.ticks{display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;padding:0;margin:0;color:var(--muted);font-size:.95rem}
-.ticks li::before{content:"✓";color:var(--accent);font-weight:700;margin-right:6px}
-.hero-ctas{display:flex;flex-wrap:wrap;gap:12px}
-.small{font-size:.85rem;color:var(--muted)}
+.ticks{display:flex;flex-wrap:wrap;gap:8px 20px;list-style:none;padding:0;margin:0;font-weight:700}
+.ticks li::before{content:"✓";color:var(--good);margin-right:8px}
+.ctas{display:flex;flex-wrap:wrap;gap:12px}
 
-.estimator{background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:18px;min-width:0}
-.est-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
-.field{display:flex;flex-direction:column;gap:6px}
-.field label{font-weight:600;font-size:.92rem;display:flex;justify-content:space-between;gap:8px}
-.field label output{font-family:var(--mono);font-weight:500;color:var(--accent)}
-input[type=range]{width:100%;accent-color:var(--accent)}
-.ruler{position:relative;height:56px;margin-top:4px}
-.ruler-track{position:absolute;left:0;right:0;top:18px;height:14px;border-radius:7px;background:var(--band);overflow:hidden;display:flex}
-.seg{height:100%}
-.seg.basic{background:var(--band)}
-.seg.higher{background:color-mix(in srgb,var(--accent) 28%,transparent)}
-.seg.add{background:color-mix(in srgb,var(--warn) 30%,transparent)}
-.ruler-mark{position:absolute;top:10px;width:1px;height:30px;background:var(--muted)}
-.ruler-lab{position:absolute;top:40px;transform:translateX(-50%);font-family:var(--mono);font-size:.7rem;color:var(--muted);white-space:nowrap}
-.ruler-you{position:absolute;top:0;transform:translateX(-50%);font-family:var(--mono);font-size:.7rem;color:var(--ink);white-space:nowrap;font-weight:500}
-.ruler-pin{position:absolute;top:14px;width:3px;height:22px;background:var(--ink);border-radius:2px;transform:translateX(-50%)}
-.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;border-top:1px dashed var(--line);padding-top:16px}
-.result-grid div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.result-grid .k{font-size:.78rem;color:var(--muted)}
-.result-grid .v{font-family:var(--mono);font-size:1.25rem;font-weight:500}
-.result-grid .v.big{color:var(--accent)}
-@media (max-width:420px){.result-grid{grid-template-columns:1fr 1fr}.result-grid div:first-child{grid-column:1/-1}}
+.record{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.record-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+.years{display:grid;grid-template-columns:repeat(11,1fr);gap:5px}
+.yr{aspect-ratio:1;max-width:100%;border-radius:5px;background:var(--accent);opacity:.9;position:relative;transition:background .4s ease}
+.yr.gap{background:var(--gap);outline:1.5px dashed var(--gap-ink);outline-offset:-1.5px}
+.yr.fixed{background:var(--good);outline:none}
+.axis{display:flex;justify-content:space-between;font-size:.82rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:.88rem;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.legend i{width:14px;height:14px;border-radius:4px;display:inline-block}
+.record-total{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed var(--line);padding-top:14px;flex-wrap:wrap}
+.record-total strong{font-family:var(--display);font-size:1.6rem}
+.toggle{align-self:flex-start}
 
-/* sections */
 section.block{padding-block:56px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:28px}
 .section-head{display:flex;flex-direction:column;gap:10px}
-.why{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-@media (max-width:820px){.why{grid-template-columns:1fr}}
-.why article{display:flex;flex-direction:column;gap:8px}
-.why .stat{font-family:var(--mono);font-size:1.9rem;font-weight:500;color:var(--accent)}
-.steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;counter-reset:s}
+.who{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.who article{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:6px}
+.who .when{font-size:.88rem;font-weight:700;color:var(--accent)}
+.other{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 24px;list-style:none;padding:0;margin:0}
+.other li{border-left:3px solid var(--accent);padding:4px 0 4px 14px}
+.other li strong{display:block}
+.other li span{color:var(--muted);font-size:.95rem}
+.steps{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:22px;counter-reset:s}
 @media (max-width:880px){.steps{grid-template-columns:1fr 1fr}}
-@media (max-width:480px){.steps{grid-template-columns:1fr}}
-.steps li{counter-increment:s;display:flex;flex-direction:column;gap:6px;padding-top:14px;border-top:3px solid var(--ink)}
-.steps li::before{content:"Step " counter(s);font-family:var(--mono);font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.steps p{color:var(--muted);font-size:.95rem}
+@media (max-width:520px){.steps{grid-template-columns:1fr}}
+.steps li{counter-increment:s;display:flex;flex-direction:column;gap:6px}
+.steps li::before{content:counter(s);display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--tint);color:var(--accent);font-family:var(--display);font-weight:700;font-size:1.15rem}
+.steps p{color:var(--muted);font-size:1rem}
 
-/* checker */
-.checker{background:var(--paper);border:1px solid var(--line);border-radius:16px;overflow:hidden}
-.progress{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.bar{flex:1 1 200px;height:6px;background:var(--band);border-radius:3px;overflow:hidden}
+.checker{background:var(--paper);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.progress{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.bar{flex:1 1 200px;height:8px;background:var(--tint);border-radius:4px;overflow:hidden}
 .bar span{display:block;height:100%;background:var(--accent);width:0;transition:width .3s ease}
-.panel{padding:28px 24px 32px;display:flex;flex-direction:column;gap:20px}
-.panel h3{font-size:1.4rem;font-family:var(--display);font-weight:700}
+.panel{padding:28px 24px 32px;display:flex;flex-direction:column;gap:18px}
+.panel h3{font-size:1.5rem}
 .opts{display:grid;gap:10px}
-.opt{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;background:var(--bg);text-align:left;width:100%}
+.opt{display:flex;align-items:center;gap:14px;border:2px solid var(--line);border-radius:12px;padding:16px 18px;cursor:pointer;background:var(--bg);text-align:left;width:100%;font-size:1.05rem;min-height:56px}
 .opt:hover{border-color:var(--muted)}
 .opt[aria-pressed="true"]{border-color:var(--accent);background:var(--tint)}
-.opt .dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--muted);flex:none}
-.opt[aria-pressed="true"] .dot{border-color:var(--accent);background:radial-gradient(var(--accent) 45%,transparent 50%)}
-.opt small{display:block;color:var(--muted);font-size:.85rem}
-.nav-row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.note{border-radius:12px;padding:14px 16px;background:var(--warn-tint);color:var(--ink);font-size:.95rem}
-.note.good{background:var(--tint)}
-.err{color:var(--danger);font-size:.85rem;min-height:1.2em}
+.opt .dot{width:20px;height:20px;border-radius:50%;border:2px solid var(--muted);flex:none}
+.opt[aria-pressed="true"] .dot{border:6px solid var(--accent)}
+.opt small{display:block;color:var(--muted);font-size:.9rem}
+.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.note{border-radius:12px;padding:16px 18px;background:var(--tint);display:grid;gap:8px}
+.note.good{background:var(--good-tint)}
+.err{color:var(--danger);font-size:.92rem;min-height:1.2em}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media (max-width:560px){.form-grid{grid-template-columns:1fr}}
-.form-grid .field input{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg)}
-.consent{display:flex;gap:10px;align-items:flex-start;font-size:.92rem;color:var(--muted)}
-.consent input{margin-top:4px;accent-color:var(--accent)}
-.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-@media (max-width:560px){.summary{grid-template-columns:1fr}}
-.summary div{border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px}
-.summary .v{font-family:var(--mono);font-size:1.5rem;font-weight:500}
-.summary .accent .v{color:var(--accent)}
+@media (max-width:600px){.form-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-weight:700}
+.field input,.field select{border:2px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--bg);min-height:52px}
+.field .hint{font-size:.88rem;color:var(--muted)}
+.consent{display:flex;gap:12px;align-items:flex-start;font-size:.95rem;color:var(--muted)}
+.consent input{margin-top:5px;width:22px;height:22px;accent-color:var(--accent);flex:none}
 
-/* fees */
-.fees{display:grid;grid-template-columns:.9fr 1.1fr;gap:32px;align-items:start}
+.fees{display:grid;grid-template-columns:.85fr 1.15fr;gap:32px;align-items:start}
 @media (max-width:820px){.fees{grid-template-columns:1fr}}
-.fee-big{font-family:var(--display);font-weight:700;font-size:clamp(3.4rem,8vw,5.4rem);line-height:1;color:var(--accent)}
-.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
-table{border-collapse:collapse;width:100%;font-size:.95rem}
-th,td{padding:12px 16px;text-align:left;border-bottom:1px solid var(--line)}
+.fee-big{font-family:var(--display);font-weight:700;font-size:clamp(3.4rem,8vw,5rem);line-height:1;color:var(--accent)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;background:var(--paper)}
+table{border-collapse:collapse;width:100%}
+caption{text-align:left;padding:14px 18px 0;color:var(--muted);font-size:.92rem}
+td{padding:14px 18px;border-bottom:1px solid var(--line)}
 tr:last-child td{border-bottom:0}
-td.r,th.r{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
-tr.total td{font-weight:600}
+td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tr.total td{font-weight:700}
+.free{border:2px solid var(--good);border-radius:14px;padding:18px 20px;background:var(--good-tint);display:grid;gap:6px}
 
-/* faq */
 .faq{display:grid;gap:10px}
-details{border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:0 18px}
-summary{cursor:pointer;padding:16px 0;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}
-summary::after{content:"+";font-family:var(--mono);color:var(--muted)}
+details{border:1px solid var(--line);border-radius:12px;background:var(--paper);padding:0 20px}
+summary{cursor:pointer;padding:18px 0;font-weight:700;list-style:none;display:flex;justify-content:space-between;gap:12px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";color:var(--accent);font-size:1.3rem;line-height:1}
 details[open] summary::after{content:"−"}
-details p{padding-bottom:16px;color:var(--muted)}
-
-footer{border-top:1px solid var(--line);padding-block:32px 48px;display:flex;flex-direction:column;gap:12px;color:var(--muted);font-size:.88rem}
-.free-line{border-left:3px solid var(--accent);padding:10px 14px;background:var(--paper);border-radius:0;color:var(--ink)}
+details p{padding-bottom:18px;color:var(--muted)}
+footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap:10px;color:var(--muted);font-size:.9rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-
-
 <header class="top">
   <div class="wrap nav">
-    <a class="logo" href="#top" aria-label="TopBand Relief home"><span class="logo-mark" aria-hidden="true"></span>TopBand Relief</a>
+    <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>Missing Years</a>
     <nav class="links" aria-label="Main">
+      <a class="plain" href="#who">Who's affected</a>
       <a class="plain" href="#how">How it works</a>
       <a class="plain" href="#fees">Fees</a>
-      <a class="plain" href="#faq">FAQ</a>
+      <a class="plain" href="#faq">Questions</a>
       <a class="btn btn-primary" href="#check">Check now</a>
     </nav>
   </div>
@@ -177,87 +163,89 @@ footer{border-top:1px solid var(--line);padding-block:32px 48px;display:flex;fle
 <main class="wrap" id="top">
   <section class="hero">
     <div class="hero-copy">
-      <span class="eyebrow">Higher rate pension tax relief</span>
-      <h1>Pay 40% tax and save into a pension? HMRC may owe you <em>up to four years</em> of relief.</h1>
-      <p class="lede">Most pension schemes only add the basic 20%. Higher and additional rate taxpayers have to claim the rest themselves, and around 800,000 people don't. We check, gather the evidence and make the claim for you.</p>
+      <span class="eyebrow">State Pension underpayment check</span>
+      <h1>Did you claim Child Benefit before 2000? Your State Pension may be missing years.</h1>
+      <p class="lede">A government records error left many parents and carers without the Home Responsibilities Protection they were entitled to between 1978 and 2010. That can mean a lower State Pension today. We check your record and make the claim for you.</p>
       <ul class="ticks">
         <li>60-second check</li>
         <li>Free to find out</li>
         <li>No win, no fee</li>
       </ul>
-      <div class="hero-ctas">
-        <a class="btn btn-primary" href="#check">Check if I'm owed</a>
-        <a class="btn btn-ghost" href="#how">How it works</a>
+      <div class="ctas">
+        <a class="btn btn-primary" href="#check">Start my free check</a>
+        <a class="btn btn-ghost" href="#who">Am I affected?</a>
       </div>
-      <p class="small">You can claim directly from HMRC for free. We offer an optional service that does the work for you.</p>
+      <p class="small">Where DWP found an HRP underpayment, it paid an average of <strong class="num">£8,377</strong> in arrears (January 2024 to March 2025).* Every case is different and amounts are not guaranteed.</p>
     </div>
 
-    <aside class="estimator" aria-labelledby="est-title">
-      <div class="est-head">
-        <h3 id="est-title">Quick estimate</h3>
-        <span class="small">Example figures, move the sliders</span>
+    <aside class="record" aria-labelledby="rec-t">
+      <div class="record-head">
+        <h3 id="rec-t">An example National Insurance record</h3>
+        <span class="small">1978 to 2010</span>
       </div>
-      <div class="field">
-        <label for="inc">Your annual income <output id="incOut" class="num"></output></label>
-        <input id="inc" type="range" min="50000" max="160000" step="1000" value="72000">
+      <div class="years" id="years" role="img" aria-label="Example record with 12 missing years between 1984 and 1995"></div>
+      <div class="axis"><span>1978</span><span>1994</span><span>2010</span></div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>Qualifying year</span>
+        <span><i style="background:var(--gap);outline:1.5px dashed var(--gap-ink);outline-offset:-1.5px"></i>Gap while raising children</span>
+        <span><i style="background:var(--good)"></i>HRP added</span>
       </div>
-      <div class="ruler" aria-hidden="true">
-        <div class="ruler-track"><div class="seg basic" id="segB"></div><div class="seg higher" id="segH"></div><div class="seg add" id="segA"></div></div>
-        <span class="ruler-mark" id="m1"></span><span class="ruler-lab" id="l1">£50,270 · 40%</span>
-        <span class="ruler-mark" id="m2"></span><span class="ruler-lab" id="l2">£125,140 · 45%</span>
-        <span class="ruler-pin" id="pin"></span><span class="ruler-you" id="you">You</span>
+      <div class="record-total">
+        <span>Years counted in this period</span>
+        <strong class="num" id="count">21 of 33</strong>
       </div>
-      <div class="field">
-        <label for="mon">You pay into your pension each month <output id="monOut" class="num"></output></label>
-        <input id="mon" type="range" min="50" max="2000" step="25" value="400">
-      </div>
-      <div class="field">
-        <label for="yrs">Years you haven't claimed (max 4) <output id="yrsOut" class="num"></output></label>
-        <input id="yrs" type="range" min="1" max="4" step="1" value="4">
-      </div>
-      <div class="result-grid">
-        <div><span class="k">Relief owed</span><span class="v big" id="rTotal">£0</span></div>
-        <div><span class="k">Our fee (36%)</span><span class="v" id="rFee">£0</span></div>
-        <div><span class="k">You keep</span><span class="v" id="rKeep">£0</span></div>
-      </div>
-      <p class="small">Estimate only, for England, Wales and Northern Ireland rates. Assumes a relief at source pension and the same income each year. Not guaranteed.</p>
+      <button class="btn btn-ghost toggle" type="button" id="fixBtn" aria-pressed="false">Show the record with HRP added</button>
+      <p class="small">Illustration only. Your own record may look different.</p>
     </aside>
   </section>
 
-  <section class="block" aria-labelledby="why-t">
+  <section class="block" id="who" aria-labelledby="who-t">
     <div class="section-head">
-      <span class="eyebrow">Why it's missed</span>
-      <h2 id="why-t">Your pension provider only claims half the relief</h2>
+      <span class="eyebrow">Who may be affected</span>
+      <h2 id="who-t">Most people affected are women now in their 60s, 70s and 80s</h2>
+      <p>Home Responsibilities Protection should have been added automatically, but for many people who first claimed Child Benefit before May 2000 it never was.</p>
     </div>
-    <div class="why">
-      <article><span class="stat">20%</span><h3>Added automatically</h3><p>Relief at source pensions and SIPPs claim basic rate relief from HMRC and add it to your pot.</p></article>
-      <article><span class="stat">+20–25%</span><h3>Left for you to claim</h3><p>If you pay 40% or 45% tax, the extra relief only arrives if you ask HMRC for it, with evidence for each year.</p></article>
-      <article><span class="stat">4 years</span><h3>Before it's lost</h3><p>You can go back four tax years. After that, unclaimed relief for the oldest year is gone for good.</p></article>
+    <div class="who">
+      <article><span class="when">1978 to 2000</span><h3>Mothers who claimed Child Benefit</h3><p>Especially if you stayed at home or worked part-time while your children were young.</p></article>
+      <article><span class="when">1978 to 2010</span><h3>The main carer when your partner claimed</h3><p>If your partner received the Child Benefit but you looked after the children.</p></article>
+      <article><span class="when">1978 to 2002</span><h3>Carers of someone sick or disabled</h3><p>If the person you cared for received Attendance Allowance or higher-rate Disability Living Allowance.</p></article>
+      <article><span class="when">2003 to 2010</span><h3>Foster and kinship carers</h3><p>Registered foster carers, and kinship carers in Scotland.</p></article>
+      <article><span class="when">Any time</span><h3>Families of someone who has died</h3><p>If your mother or another relative may have been affected, their estate can still claim the arrears.</p></article>
     </div>
+    <div class="section-head" style="margin-top:8px">
+      <h3>We also check for other State Pension underpayments</h3>
+    </div>
+    <ul class="other">
+      <li><strong>Married person uplift</strong><span>A low pension not increased when your husband or wife retired</span></li>
+      <li><strong>Widow or widower uplift</strong><span>A pension not reassessed after your partner died</span></li>
+      <li><strong>Over-80 pension</strong><span>Little or no basic State Pension at age 80 or over</span></li>
+      <li><strong>Divorce</strong><span>Using a former partner's record where the rules allow</span></li>
+      <li><strong>Record errors</strong><span>Missing contributions, credits or wrong details</span></li>
+    </ul>
   </section>
 
   <section class="block" id="how" aria-labelledby="how-t">
     <div class="section-head">
       <span class="eyebrow">How it works</span>
-      <h2 id="how-t">You answer six questions. We handle HMRC.</h2>
+      <h2 id="how-t">You answer a few questions. We deal with HMRC and DWP.</h2>
     </div>
     <ol class="steps">
-      <li><h3>Check</h3><p>Answer a few questions about your income and pension. It takes about a minute.</p></li>
-      <li><h3>Gather</h3><p>With your authority, we request statements from your pension providers for each tax year.</p></li>
-      <li><h3>Claim</h3><p>We check every figure, then claim through your tax return or by letter to HMRC.</p></li>
-      <li><h3>Get paid</h3><p>HMRC pays you directly. We invoice our fee only once you've received backdated relief.</p></li>
+      <li><h3>Check</h3><p>Answer a few simple questions about your family, work and pension. It takes about a minute.</p></li>
+      <li><h3>Consider</h3><p>We call you, look at your National Insurance record and explain what may be missing.</p></li>
+      <li><h3>Claim</h3><p>With your permission, we prepare the forms and evidence and send your claim to HMRC.</p></li>
+      <li><h3>Collect</h3><p>If your record is corrected, DWP pays any arrears straight to you and increases your weekly pension.</p></li>
     </ol>
   </section>
 
   <section class="block" id="check" aria-labelledby="chk-t">
     <div class="section-head">
-      <span class="eyebrow">Eligibility check</span>
-      <h2 id="chk-t">Find out in 60 seconds</h2>
+      <span class="eyebrow">Free eligibility check</span>
+      <h2 id="chk-t">Find out if your pension may have been underpaid</h2>
     </div>
     <div class="checker">
       <div class="progress">
         <div class="bar" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" id="bar"><span id="barFill"></span></div>
-        <span class="small num" id="timeLeft">About 60 seconds left</span>
+        <span class="small" id="timeLeft">About 60 seconds left</span>
       </div>
       <div class="panel" id="panel" aria-live="polite"></div>
     </div>
@@ -266,32 +254,36 @@ footer{border-top:1px solid var(--line);padding-block:32px 48px;display:flex;fle
   <section class="block" id="fees" aria-labelledby="fees-t">
     <div class="section-head">
       <span class="eyebrow">Fees</span>
-      <h2 id="fees-t">No win, no fee. One simple rate.</h2>
+      <h2 id="fees-t">No win, no fee. Nothing to pay upfront.</h2>
     </div>
     <div class="fees">
       <div style="display:flex;flex-direction:column;gap:14px">
         <div class="fee-big num">36%</div>
-        <p>Our fee is 30% of the backdated relief you receive, plus VAT at 20%, which makes 36% in total.</p>
-        <ul style="margin:0;padding-left:20px;color:var(--muted);display:grid;gap:6px">
-          <li>Nothing to pay upfront</li>
-          <li>Nothing to pay if no relief is due</li>
-          <li>No fee on future savings through your tax code</li>
-          <li>HMRC pays you directly; we invoice once you've received it, due within 14 days</li>
+        <p>Our fee is 30% of the backdated arrears you receive, plus VAT at 20%, which is 36% in total.</p>
+        <ul style="margin:0;padding-left:22px;display:grid;gap:8px">
+          <li>Nothing to pay if no arrears are paid</li>
+          <li>No fee on your weekly pension increase</li>
+          <li>DWP pays you directly. Once you've received your arrears, send us the award letter and we'll invoice you, due within 14 days</li>
+          <li>Payment plans available if you need more time</li>
         </ul>
       </div>
       <div class="table-wrap">
         <table>
-          <caption class="small" style="text-align:left;padding:12px 16px">Example: four years at the average unclaimed relief</caption>
+          <caption>Example at the DWP average arrears of £8,377</caption>
           <tbody>
-            <tr><td>Backdated relief (4 × £1,756)</td><td class="r">£7,024</td></tr>
-            <tr><td>Our fee (30%)</td><td class="r">−£2,107.20</td></tr>
-            <tr><td>VAT on our fee (20%)</td><td class="r">−£421.44</td></tr>
-            <tr class="total"><td>You keep</td><td class="r">£4,495.36</td></tr>
+            <tr><td>Arrears paid to you by DWP</td><td class="r">£8,377.00</td></tr>
+            <tr><td>Our fee (30%)</td><td class="r">−£2,513.10</td></tr>
+            <tr><td>VAT on our fee (20%)</td><td class="r">−£502.62</td></tr>
+            <tr class="total"><td>You keep</td><td class="r">£5,361.28</td></tr>
+            <tr><td>Plus your higher weekly pension, with no fee</td><td class="r">—</td></tr>
           </tbody>
         </table>
       </div>
     </div>
-    <p class="free-line">You don't have to use us. You can claim directly from HMRC for free through your Self Assessment return or HMRC's online service, and keep 100% of the relief.</p>
+    <div class="free">
+      <strong>You can claim yourself for free</strong>
+      <p>You don't have to use us. You can apply to HMRC directly through GOV.UK and keep 100% of any arrears. We offer an optional service for people who would rather we did the work.</p>
+    </div>
   </section>
 
   <section class="block" id="faq" aria-labelledby="faq-t">
@@ -300,195 +292,189 @@ footer{border-top:1px solid var(--line);padding-block:32px 48px;display:flex;fle
       <h2 id="faq-t">Common questions</h2>
     </div>
     <div class="faq">
-      <details><summary>Who is likely to be owed relief?</summary><p>People who pay tax at 40% or 45% and pay into a personal pension, a SIPP, or a workplace pension taken from take-home pay (relief at source). If your contributions come out of your pay before tax, or through salary sacrifice, you already get full relief.</p></details>
-      <details><summary>How far back can you claim?</summary><p>Up to four tax years. Relief for the oldest year expires at the end of each tax year, so it's worth checking sooner rather than later.</p></details>
-      <details><summary>How is the money paid?</summary><p>HMRC pays you directly, usually as a refund for past years. For the current year it often adjusts your tax code instead. We never receive your money.</p></details>
-      <details><summary>What do you need from me?</summary><p>Photo ID, your National Insurance number, your pension provider details and your signed authority for us to act for you. We request the statements HMRC requires for each year.</p></details>
-      <details><summary>How long does it take?</summary><p>HMRC aims to respond within 28 working days of receiving a claim. Gathering statements from providers usually adds a few weeks.</p></details>
-      <details><summary>Are you part of HMRC?</summary><p>No. We are an independent company acting as your agent. We are not affiliated with or endorsed by HMRC.</p></details>
+      <details><summary>Is this a scam?</summary><p>No. We will never ask for your bank card, PIN, passwords or any payment upfront. You'll sign a written agreement that sets out our fee before we do anything, and you can cancel within 14 days at no cost.</p></details>
+      <details><summary>Can I claim myself without paying a fee?</summary><p>Yes. You can apply to HMRC directly through GOV.UK for free. We offer an optional service that handles the forms, evidence and follow-up for you.</p></details>
+      <details><summary>How long does it take?</summary><p>HMRC currently has a large backlog. People are waiting between three and eleven months for a decision, and DWP pays arrears after that. We keep you updated throughout.</p></details>
+      <details><summary>Will it affect my tax or benefits?</summary><p>Arrears are taxed as income for the years they relate to. A higher pension can also reduce means-tested benefits such as Pension Credit or Housing Benefit. We'll explain this before you decide, and Citizens Advice or Age UK can give free benefits advice.</p></details>
+      <details><summary>Can I claim for a parent who has died?</summary><p>Yes. If your mother or another relative may have been affected, the person dealing with their estate can claim any arrears that were owed to them.</p></details>
+      <details><summary>Is the fee charged on my weekly pension increase?</summary><p>No. We only charge on the backdated arrears you actually receive. The increase to your weekly pension is yours in full.</p></details>
+      <details><summary>Are you part of HMRC or DWP?</summary><p>No. We are an independent company acting as your agent. We are not part of, or endorsed by, HMRC, DWP or the government.</p></details>
     </div>
   </section>
 
   <footer>
-    <p><strong style="color:var(--ink)">TopBand Relief</strong> is a working name. Company number, registered address and HMRC agent reference to be added before launch.</p>
-    <p>Estimates are illustrative and not guaranteed. Eligibility and amounts depend on your income, pension type and tax history. This site does not give financial advice.</p>
-    <p>Not affiliated with HMRC. You can claim tax relief directly from HMRC for free.</p>
+    <p><strong style="color:var(--ink)">Missing Years</strong> is a working name. Company number, registered address, phone number and HMRC agent details will be added before launch.</p>
+    <p>* DWP management information: average arrears of £8,377 paid where an HRP underpayment was identified, 8 January 2024 to 31 March 2025. This is not a typical or guaranteed amount. Eligibility and outcomes depend on your circumstances.</p>
+    <p>We are not part of HMRC, DWP or the government. You can apply to HMRC yourself for free.</p>
   </footer>
 </main>
 
 <script>
 (function(){
-  const HR=50270, AR=125140;
-  const gbp=n=>"£"+Math.round(n).toLocaleString("en-GB");
-  function relief(income, monthlyNet, years){
-    let g=monthlyNet*12/0.8, r=0;
-    const addPart=Math.max(0,income-AR), higherPart=Math.max(0,Math.min(income,AR)-HR);
-    const a=Math.min(g,addPart); r+=a*0.25; g-=a;
-    const h=Math.min(g,higherPart); r+=h*0.20;
-    const total=r*years, fee=total*0.36;
-    return {perYear:r,total,fee,keep:total-fee};
+  /* example NI record */
+  const yearsEl=document.getElementById("years"), btn=document.getElementById("fixBtn"), count=document.getElementById("count");
+  const cells=[];
+  for(let y=1978;y<=2010;y++){
+    const d=document.createElement("span");
+    d.className="yr"+(y>=1984&&y<=1995?" gap":"");
+    d.title=String(y);
+    yearsEl.append(d);cells.push(d);
   }
-
-  /* estimator */
-  const inc=document.getElementById("inc"), mon=document.getElementById("mon"), yrs=document.getElementById("yrs");
-  const MIN=0, MAX=170000, pct=v=>Math.min(100,Math.max(0,(v-MIN)/(MAX-MIN)*100));
-  function place(){
-    document.getElementById("segB").style.width=pct(HR)+"%";
-    document.getElementById("segH").style.width=(pct(AR)-pct(HR))+"%";
-    document.getElementById("segA").style.width=(100-pct(AR))+"%";
-    for(const [m,l,v] of [["m1","l1",HR],["m2","l2",AR]]){
-      document.getElementById(m).style.left=pct(v)+"%";
-      const lab=document.getElementById(l); lab.style.left=pct(v)+"%";
-    }
-  }
-  function update(){
-    const i=+inc.value, m=+mon.value, y=+yrs.value;
-    document.getElementById("incOut").textContent=gbp(i);
-    document.getElementById("monOut").textContent=gbp(m);
-    document.getElementById("yrsOut").textContent=y;
-    document.getElementById("pin").style.left=pct(i)+"%";
-    document.getElementById("you").style.left=pct(i)+"%";
-    const r=relief(i,m,y);
-    document.getElementById("rTotal").textContent=gbp(r.total);
-    document.getElementById("rFee").textContent=gbp(r.fee);
-    document.getElementById("rKeep").textContent=gbp(r.keep);
-  }
-  place();[inc,mon,yrs].forEach(e=>e.addEventListener("input",update));update();
+  let fixed=false;
+  btn.addEventListener("click",()=>{
+    fixed=!fixed;
+    cells.forEach(c=>{if(c.classList.contains("gap")||c.classList.contains("fixed")){c.classList.toggle("gap",!fixed);c.classList.toggle("fixed",fixed);}});
+    count.textContent=fixed?"33 of 33":"21 of 33";
+    btn.textContent=fixed?"Show the record before":"Show the record with HRP added";
+    btn.setAttribute("aria-pressed",String(fixed));
+  });
 
   /* checker */
   const panel=document.getElementById("panel"), fill=document.getElementById("barFill"), bar=document.getElementById("bar"), timeLeft=document.getElementById("timeLeft");
   const A={};
+  const years=[];for(let y=1975;y>=1925;y--)years.push(String(y));
   const steps=[
-    {id:"income",q:"Has your income been over £50,270 in any of the last four tax years?",help:"Include salary, bonuses and other taxable income.",
-     opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]],
-     stop:{no:"Relief above 20% is only due on income taxed at 40% or more, so it doesn't look like you're owed anything. If your income rises above £50,270 in future, check again."}},
-    {id:"scheme",q:"How do you pay into your pension?",
-     opts:[["ras","Workplace pension from my take-home pay","Often called relief at source"],["personal","Personal pension or SIPP","Including ones you set up yourself"],["sacrifice","Salary sacrifice"],["netpay","Taken from my pay before tax","Often called net pay"],["unsure","Not sure","We'll check this for you"]],
-     stop:{sacrifice:"With salary sacrifice you already get full tax relief through your pay, so there's nothing extra to claim.",netpay:"When contributions come out before tax, you already get full relief through payroll, so there's nothing extra to claim."}},
-    {id:"band",q:"Roughly what is your annual income now?",
-     opts:[["55000","£50,271 to £60,000"],["70000","£60,001 to £80,000"],["90000","£80,001 to £100,000"],["112500","£100,001 to £125,140","We'll also check your personal allowance"],["140000","Over £125,140"]]},
-    {id:"monthly",q:"Roughly how much do you pay in each month?",help:"The amount that leaves your bank account or payslip, before any top-up.",
-     opts:[["75","Under £100"],["175","£100 to £250"],["375","£250 to £500"],["750","£500 to £1,000"],["1250","Over £1,000"]]},
-    {id:"claimed",q:"Have you ever claimed extra pension tax relief from HMRC?",
-     opts:[["no","No"],["some","Yes, for some years"],["all","Yes, every year"],["unsure","Not sure"]],
-     stop:{all:"If you've claimed every year, your relief should already be up to date. If anything changed, such as a new pension or a pay rise, it's worth checking again."}},
-    {id:"sa",q:"Do you complete a Self Assessment tax return?",help:"This decides how we make your claim.",
+    {id:"for",q:"Who is this check for?",
+     opts:[["me","Myself"],["help","Someone I'm helping, such as a parent"],["died","Someone who has died","Their estate may still be owed arrears"]]},
+    {id:"cb",q:"Did you (or they) receive Child Benefit, or Family Allowance, for any children between 1978 and 2010?",
+     opts:[["yes","Yes"],["partner","No, my partner claimed it but I looked after the children"],["no","No"],["unsure","Not sure"]]},
+    {id:"care",q:"Between 1978 and 2010, did you care for someone sick or disabled, or foster a child?",when:()=>A.cb==="no",
+     opts:[["yes","Yes"],["no","No"]],
+     stop:{no:"HRP was mainly for parents receiving Child Benefit and for carers, so it doesn't look as though missing HRP applies. If you're married, widowed, divorced or over 80, a different underpayment may still apply. Go back and choose \"Not sure\" if you'd like us to check."}},
+    {id:"born",q:"What year were you (or they) born?",select:years,help:"This tells us which State Pension rules apply."},
+    {id:"status",q:"What is your (or their) marital status?",
+     opts:[["married","Married or in a civil partnership"],["widowed","Widowed"],["divorced","Divorced or dissolved"],["single","Single"]]},
+    {id:"pension",q:"How much State Pension do you (or they) receive?",
+     opts:[["less","Less than the full State Pension"],["full","The full State Pension"],["none","Not receiving it yet"],["unsure","Not sure"]],
+     stop:{full:"If you already receive the full State Pension, missing years shouldn't have reduced it, so there's unlikely to be anything to claim."}},
+    {id:"credit",q:"Do you (or they) receive Pension Credit?",help:"A higher State Pension can change Pension Credit. We'll explain this before you decide.",
      opts:[["yes","Yes"],["no","No"],["unsure","Not sure"]]},
     {id:"contact",contact:true}
   ];
   let idx=0;
-  const total=steps.length;
-
-  function progress(){
-    const p=Math.round(idx/total*100);
-    fill.style.width=p+"%"; bar.setAttribute("aria-valuenow",p);
-    const secs=Math.max(0,Math.round((total-idx)*60/total));
-    timeLeft.textContent= idx>=total ? "Done" : `About ${secs} seconds left`;
-  }
+  const visible=()=>steps.filter(s=>!s.when||s.when());
+  function curIndex(){return visible().indexOf(steps[idx]);}
 
   function el(tag,attrs={},html){const e=document.createElement(tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(html!=null)e.innerHTML=html;return e;}
-
+  function next(){do{idx++;}while(idx<steps.length&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
+  function prev(){do{idx--;}while(idx>0&&steps[idx].when&&!steps[idx].when());render();focusPanel();}
+  function progress(){
+    const v=visible(), total=v.length, i=idx>=steps.length?total:curIndex();
+    const p=Math.round(i/total*100);
+    fill.style.width=p+"%";bar.setAttribute("aria-valuenow",p);
+    timeLeft.textContent=idx>=steps.length?"Done":`About ${Math.max(5,Math.round((total-i)*60/total))} seconds left`;
+  }
   function render(){
-    progress();
-    panel.innerHTML="";
-    if(idx>=total) return renderResult();
+    progress();panel.innerHTML="";
+    if(idx>=steps.length)return renderResult();
     const s=steps[idx];
-    if(s.contact) return renderContact();
-    panel.append(el("span",{class:"eyebrow"},`Question ${idx+1} of ${total-1}`));
+    if(s.contact)return renderContact();
+    const total=visible().length-1;
+    panel.append(el("span",{class:"eyebrow"},`Question ${curIndex()+1} of ${total}`));
     panel.append(el("h3",{},s.q));
-    if(s.help) panel.append(el("p",{class:"small"},s.help));
+    if(s.help)panel.append(el("p",{class:"small"},s.help));
+    if(s.select){
+      const f=el("div",{class:"field"});
+      f.innerHTML=`<label for="yearSel">Year of birth</label><select id="yearSel"><option value="">Choose a year</option>${s.select.map(y=>`<option${A[s.id]===y?" selected":""}>${y}</option>`).join("")}</select><span class="err" id="yearErr"></span>`;
+      panel.append(f);
+      const row=el("div",{class:"row"});
+      const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;
+      const go=el("button",{type:"button",class:"btn btn-primary"},"Continue");
+      go.onclick=()=>{const v=f.querySelector("select").value;if(!v){f.querySelector("#yearErr").textContent="Choose a year of birth to continue";return;}A[s.id]=v;next();};
+      f.querySelector("select").addEventListener("change",()=>{f.querySelector("#yearErr").textContent="";});
+      row.append(back,go);panel.append(row);return;
+    }
     const opts=el("div",{class:"opts",role:"group","aria-label":s.q});
     s.opts.forEach(([v,label,sub])=>{
       const b=el("button",{type:"button",class:"opt","aria-pressed":String(A[s.id]===v)},`<span class="dot" aria-hidden="true"></span><span>${label}${sub?`<small>${sub}</small>`:""}</span>`);
-      b.addEventListener("click",()=>{A[s.id]=v; if(s.stop&&s.stop[v]) return renderStop(s.stop[v]); idx++; render(); focusPanel();});
+      b.addEventListener("click",()=>{A[s.id]=v;if(s.stop&&s.stop[v])return renderStop(s.stop[v]);next();});
       opts.append(b);
     });
     panel.append(opts);
-    if(idx>0){const row=el("div",{class:"nav-row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=()=>{idx--;render();focusPanel();};row.append(back);panel.append(row);}
+    if(idx>0){const row=el("div",{class:"row"});const back=el("button",{type:"button",class:"btn btn-ghost"},"Back");back.onclick=prev;row.append(back);panel.append(row);}
   }
-
   function renderStop(msg){
     panel.innerHTML="";
-    panel.append(el("span",{class:"eyebrow"},"Result"));
-    panel.append(el("h3",{},"It doesn't look like you're owed relief"));
-    panel.append(el("p",{class:"note"},msg));
-    const row=el("div",{class:"nav-row"});
+    panel.append(el("span",{class:"eyebrow"},"Your answer"));
+    panel.append(el("h3",{},"It doesn't look as though we can help with this"));
+    panel.append(el("div",{class:"note"},`<p>${msg}</p>`));
+    const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answer");back.onclick=()=>{render();focusPanel();};
-    const restart=el("button",{type:"button",class:"btn btn-ghost"},"Start again");restart.onclick=()=>{for(const k in A)delete A[k];idx=0;render();focusPanel();};
-    row.append(back,restart);panel.append(row);
+    const again=el("button",{type:"button",class:"btn btn-ghost"},"Start again");again.onclick=()=>{for(const k in A)delete A[k];idx=0;render();focusPanel();};
+    row.append(back,again);panel.append(row);
   }
-
   function renderContact(){
     panel.append(el("span",{class:"eyebrow"},"Last step"));
-    panel.append(el("h3",{},"Where should we send your result?"));
-    panel.append(el("p",{class:"small"},"We'll show your estimate on the next screen and email you a copy."));
-    const f=el("form",{novalidate:"",id:"contactForm"});
-    f.style.display="flex";f.style.flexDirection="column";f.style.gap="14px";
+    panel.append(el("h3",{},"Your details"));
+    panel.append(el("p",{class:"small"},A.for==="me"?"So we can tell you the result and call you to talk it through.":"Enter your own details. We'll ask about the person you're helping when we call."));
+    const f=el("form",{novalidate:""});
+    f.style.cssText="display:flex;flex-direction:column;gap:14px";
     f.innerHTML=`<div class="form-grid">
-      <div class="field"><label for="fn">First name</label><input id="fn" autocomplete="given-name" required><span class="err" id="fnErr"></span></div>
-      <div class="field"><label for="ln">Last name</label><input id="ln" autocomplete="family-name" required><span class="err" id="lnErr"></span></div>
-      <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" required><span class="err" id="emErr"></span></div>
-      <div class="field"><label for="ph">Mobile</label><input id="ph" type="tel" autocomplete="tel" required><span class="err" id="phErr"></span></div>
+      <div class="field"><label for="ti">Title</label><select id="ti"><option value="">Choose</option><option>Mrs</option><option>Ms</option><option>Miss</option><option>Mr</option><option>Mx</option><option>Dr</option></select><span class="err" id="tiErr"></span></div>
+      <div class="field"><label for="fn">First name</label><input id="fn" autocomplete="given-name"><span class="err" id="fnErr"></span></div>
+      <div class="field"><label for="ln">Last name</label><input id="ln" autocomplete="family-name"><span class="err" id="lnErr"></span></div>
+      <div class="field"><label for="mn">Maiden or previous surname <span class="small">(optional)</span></label><input id="mn"><span class="hint">Helps HMRC find older records</span></div>
+      <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email"><span class="err" id="emErr"></span></div>
+      <div class="field"><label for="ph">Phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="err" id="phErr"></span></div>
     </div>
-    <label class="consent"><input type="checkbox" id="ok"> <span>I agree to TopBand Relief contacting me about my claim by phone, SMS, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
+    <label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label>
     <span class="err" id="okErr"></span>
-    <div class="nav-row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
+    <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See my result</button></div>`;
     panel.append(f);
-    ["fn","ln","em","ph"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{f.querySelector("#"+k+"Err").textContent="";});});
+    ["ti","fn","ln","mn","em","ph"].forEach(k=>{const i=f.querySelector("#"+k);if(A[k])i.value=A[k];i.addEventListener("input",()=>{const e=f.querySelector("#"+k+"Err");if(e)e.textContent="";});});
     f.querySelector("#ok").checked=!!A.ok;
     f.querySelector("#ok").addEventListener("change",()=>{f.querySelector("#okErr").textContent="";});
-    f.querySelector("#back").onclick=()=>{idx--;render();focusPanel();};
+    f.querySelector("#back").onclick=prev;
     f.addEventListener("submit",e=>{
       e.preventDefault();
-      const v=k=>f.querySelector("#"+k).value.trim(); let bad=false;
-      const set=(k,m)=>{f.querySelector("#"+k+"Err").textContent=m; if(m) bad=true;};
-      set("fn", v("fn")?"":"Enter your first name");
-      set("ln", v("ln")?"":"Enter your last name");
-      set("em", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address like name@example.com");
-      set("ph", /^(\+44\s?7\d{3}|07\d{3})\s?\d{3}\s?\d{3}$/.test(v("ph").replace(/\s+/g," "))?"":"Enter a UK mobile number, like 07700 900123");
-      set("ok", f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your claim");
-      if(bad) return;
-      ["fn","ln","em","ph"].forEach(k=>A[k]=v(k)); A.ok=true;
-      idx++; render(); focusPanel();
+      const v=k=>f.querySelector("#"+k).value.trim();let bad=false;
+      const set=(k,m)=>{f.querySelector("#"+k+"Err").textContent=m;if(m)bad=true;};
+      set("ti",v("ti")?"":"Choose a title");
+      set("fn",v("fn")?"":"Enter your first name");
+      set("ln",v("ln")?"":"Enter your last name");
+      set("em",/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v("em"))?"":"Enter an email address, like name@example.com");
+      set("ph",/^(\+44\s?|0)\d[\d\s]{8,12}$/.test(v("ph"))?"":"Enter a UK phone number, like 07700 900123 or 0161 496 0000");
+      set("ok",f.querySelector("#ok").checked?"":"Tick the box so we can contact you about your check");
+      if(bad)return;
+      ["ti","fn","ln","mn","em","ph"].forEach(k=>A[k]=v(k));A.ok=true;
+      idx=steps.length;render();focusPanel();
     });
   }
-
   function renderResult(){
-    const income=+A.band, monthly=+A.monthly;
-    const years = A.claimed==="some" ? 2 : 4;
-    const r=relief(income,monthly,years);
-    panel.append(el("span",{class:"eyebrow"},"Your estimate"));
-    panel.append(el("h3",{},`${A.fn}, it looks like you could be owed about ${gbp(r.total)}`));
-    const sum=el("div",{class:"summary"});
-    sum.innerHTML=`<div class="accent"><span class="small">Backdated relief, ${years} years</span><span class="v">${gbp(r.total)}</span></div>
-      <div><span class="small">Our fee, 36% inc. VAT</span><span class="v">${gbp(r.fee)}</span></div>
-      <div><span class="small">You keep</span><span class="v">${gbp(r.keep)}</span></div>`;
-    panel.append(sum);
-    const route = A.sa==="yes" ? "As you file Self Assessment, we'd claim through your tax returns." : A.sa==="no" ? "As you don't file Self Assessment, we'd make a written claim to HMRC with your pension statements." : "We'll confirm whether to claim through Self Assessment or by letter to HMRC.";
-    const notes=[route];
-    if(A.scheme==="unsure") notes.push("We'll confirm your pension type from your provider before claiming.");
-    if(A.income==="unsure") notes.push("We'll confirm your tax band for each year from your P60s.");
-    if(+A.band===112500) notes.push("Your income is in the £100,000 to £125,140 band, where pension contributions can also restore your personal allowance. We'll check this too.");
-    if(A.claimed==="some") notes.push("You've claimed for some years, so this estimate covers two years. We'll confirm which years are still open.");
+    const checks=[];
+    if(A.cb==="yes"||A.cb==="partner"||A.cb==="unsure")checks.push("Missing Home Responsibilities Protection for the years you raised children");
+    if(A.cb==="no"&&A.care==="yes")checks.push("Missing HRP for the years you were a carer or foster carer");
+    if(A.status==="married")checks.push("The married person uplift based on your husband's or wife's record");
+    if(A.status==="widowed")checks.push("The widow or widower uplift");
+    if(A.status==="divorced")checks.push("Entitlement based on a former partner's record");
+    if(+A.born<=1946)checks.push("The over-80 State Pension");
+    checks.push("Any other gaps or errors in the National Insurance record");
+    const who=A.for==="died"?"their estate":A.for==="help"?"they":"you";
+    panel.append(el("span",{class:"eyebrow"},"Your result"));
+    panel.append(el("h3",{},`${A.fn}, it looks like ${who==="you"?"you":who} may be owed money`));
+    panel.append(el("p",{},"Based on your answers, these are the checks we would carry out:"));
+    panel.append(el("ul",{style:"margin:0;padding-left:22px;display:grid;gap:6px"},checks.map(c=>`<li>${c}</li>`).join("")));
+    const notes=[];
+    notes.push("<strong>What happens next:</strong> one of our team will call you within one working day to go through your record. There's nothing to pay and no obligation.");
+    if(A.credit!=="no")notes.push("Because you may receive Pension Credit, we'll explain how a higher State Pension could affect it before you decide.");
+    if(A.pension==="none")notes.push("As the State Pension hasn't started yet, correcting the record now could mean a higher pension from the start.");
     panel.append(el("div",{class:"note good"},notes.map(n=>`<p>${n}</p>`).join("")));
-    panel.append(el("p",{class:"small"},"This is an estimate based on your answers and is not guaranteed. You can claim directly from HMRC for free and keep 100% of the relief."));
-    const row=el("div",{class:"nav-row"});
+    panel.append(el("p",{class:"small"},"This is an initial check and doesn't confirm entitlement. Only HMRC and DWP can decide what's owed. You can apply to HMRC yourself for free."));
+    const row=el("div",{class:"row"});
     const back=el("button",{type:"button",class:"btn btn-ghost"},"Change my answers");back.onclick=()=>{idx=0;render();focusPanel();};
-    const go=el("button",{type:"button",class:"btn btn-primary"},"Start my claim");
+    const go=el("button",{type:"button",class:"btn btn-primary"},"Request my call");
     go.onclick=()=>{
       panel.innerHTML="";
-      panel.append(el("span",{class:"eyebrow"},"Next steps"));
-      panel.append(el("h3",{},"Thanks, your claim is ready to start"));
-      panel.append(el("ol",{style:"margin:0;padding-left:20px;display:grid;gap:8px"},"<li>We'll email you a link to verify your ID and sign your authority.</li><li>We request your pension statements for each year.</li><li>We check the figures and send your claim to HMRC.</li>"));
-      panel.append(el("p",{class:"note"},"Preview version: nothing has been sent yet. This step will connect to the CRM."));
+      panel.append(el("span",{class:"eyebrow"},"Thank you"));
+      panel.append(el("h3",{},"We'll be in touch"));
+      panel.append(el("p",{},"One of our team will call to talk through your record, explain our fee and answer your questions. You'll only be asked to sign anything once you're happy to go ahead."));
+      panel.append(el("div",{class:"note"},"<p>Test version: nothing has been sent yet. This step will connect to the CRM.</p>"));
     };
     row.append(back,go);panel.append(row);
   }
-
   function focusPanel(){const h=panel.querySelector("h3");if(h){h.setAttribute("tabindex","-1");h.focus({preventScroll:true});}}
   render();
 })();
 </script>
-
 </body>
 </html>
