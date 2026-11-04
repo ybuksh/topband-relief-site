@@ -120,6 +120,32 @@ const QA_ITEMS = [
   ["nopressure", "No pressure, no promises about amounts or timescales", true]
 ];
 const CLAIM_TYPES = { hrp: "Missing HRP", married: "Married uplift", catbl: "Category BL", widowed: "Widowed or inherited pension", divorced: "Former partner's record", deferred: "Deferred State Pension", nicredits: "NI credits error", pensioncredit: "Linked Pension Credit", over80: "Over-80 pension", other: "Other record error" };
+/* DWP State Pension information request, sent under the client's signed DWP letter of authority.
+   Only the sections that match the case's claim types are requested; the rest are marked "not requested". */
+const DWP_SECTIONS = [
+  ["A", "HRP-related State Pension correction", ["hrp"], ["whether the State Pension award has been checked or recalculated for missing or wrongly recorded Home Responsibilities Protection (HRP)", "the HRP credits or equivalent qualifying years taken into account", "the current or revised weekly State Pension rate resulting from those credits"]],
+  ["B", "National Insurance credit or qualifying-year correction affecting State Pension", ["nicredits"], ["whether any National Insurance credit or qualifying-year correction has been applied or taken into account", "the number of qualifying years or credits added, where available", "the current or revised weekly State Pension rate resulting from those corrections"]],
+  ["C", "Widow's, widower's or surviving spouse's increase, or inherited State Pension", ["widowed"], ["whether the client has been reviewed for any widow's, widower's or surviving spouse's increase or inherited State Pension", "whether any increase or correction has been identified or applied", "the revised weekly rate and the amount of any increase"]],
+  ["D", "Increase based on a husband's, wife's or civil partner's record, including Category BL", ["married", "catbl", "divorced"], ["whether the client has been reviewed for any increase based on a spouse's or civil partner's record, including Category BL", "whether any increase or correction has been identified or applied", "the revised weekly rate and the amount of any increase"]],
+  ["E", "Deferred State Pension", ["deferred"], ["whether DWP records show a period of deferral relevant to the award, and the period used", "whether any extra State Pension or lump sum is due or has been applied", "the revised weekly rate and the amount of any increase or lump sum"]],
+  ["F", "Linked Pension Credit effect only", ["pensioncredit"], ["whether the State Pension correction has affected any Pension Credit award or refusal", "any revised Pension Credit amount or arrears arising from the correction"]],
+  ["G", "Outcome, arrears and revised payment for the matters requested", null, ["whether the correction was made, and the decision date", "the exact backdated arrears or lump sum due to the client, the period it covers, and any amount withheld (for example to recover an overpayment)", "the revised weekly State Pension rate and the payment date, where available"]]
+];
+function dwpRequestBody(L, pack, brand, company) {
+  const types = new Set(String(L.claim_types || "").split(",").filter(Boolean));
+  if (!types.size) types.add("hrp");
+  const want = s => !s[2] || s[2].some(t => types.has(t));
+  const name = [L.title, L.first_name, L.last_name].filter(Boolean).join(" ");
+  const signedOn = pack && pack.signed_at ? fmtDate(iso(pack.signed_at)) : "[date signed]";
+  return `<p><b>State Pension correction and underpayment review: information request</b></p>
+<p>We write on behalf of ${esc(name)} about a possible correction to their State Pension, limited to the sections marked "requested" below and any resulting arrears. ${esc(name)} signed the enclosed letter of authority on ${esc(signedOn)}, allowing you to share information about these matters with ${esc(company)} (trading as ${esc(brand)}). We have verified the client's identity as part of our onboarding checks.</p>
+<p>We understand that DWP will continue to pay any money due directly to the client. We act only as the client's representative for this review: we are not their appointee, attorney or deputy, and we cannot receive or redirect any payment.</p>
+<p><b>Core information</b>, where available and only as relevant to the sections requested: a copy of the client's current or most recent State Pension award notice; any statement or calculation breakdown showing the qualifying years and credits used and the resulting weekly rate; and the total number of qualifying years used.${L.marriage_date ? ` The client married on ${fmtDate(iso(L.marriage_date))}.` : ""}${L.partner_death_date ? ` The client's spouse or civil partner died on ${fmtDate(iso(L.partner_death_date))}.` : ""} If you need further spouse or civil partner details to identify a record, please tell us what you need.</p>
+<table class="doc-fields"><thead><tr><th>Section</th><td><b>Status</b></td></tr></thead><tbody>${DWP_SECTIONS.map(s => `<tr><th>${s[0]}. ${esc(s[1])}</th><td>${want(s) ? "<b>Requested</b>" : "Not requested"}</td></tr>`).join("")}</tbody></table>
+${DWP_SECTIONS.filter(want).map(s => `<p><b>${s[0]}. ${esc(s[1])}.</b> Please confirm, limited to the effect on the client's State Pension:</p><ul>${s[3].map(x => `<li>${esc(x)};</li>`).join("")}</ul>`).join("")}
+<p>Please respond only to the sections requested; the others are not part of this request. Where you issue a formal decision or award notice about the matters requested, please send us a copy under the enclosed authority. Thank you for your help.</p>`;
+}
+
 const FILE_KINDS = { soa: "NI statement (SoA) from HMRC", reject648: "64-8 rejection from HMRC", cf411reply: "CF411 reply from HMRC", dwp: "DWP letter", arrears: "DWP arrears letter", id: "ID document", other: "Other" };
 const LABELS = {
   cb: { yes: "Yes, paid to the client", partner: "Paid to partner (partner should claim)", no: "No", unsure: "Not sure" },
@@ -672,9 +698,9 @@ app.post("/api/leads/:ref/details", async (req, res) => {
     const ni = normNi(b.ni) || L.ni_number;
     const pc = clip(b.postcode, 10).toUpperCase() || null;
     await pool.query(`UPDATE leads SET dob=coalesce($2,dob), hmrc_name=coalesce(nullif($3,''),hmrc_name), ni_number=$4, postcode=coalesce($5,postcode), address=coalesce(nullif($6,''),address), years_at_address=$7, prev_address=coalesce(nullif($8,''),prev_address),
-      prev_names=coalesce(nullif($9,''),prev_names), children=coalesce($10,children), partner_name=coalesce(nullif($11,''),partner_name), partner_dob=$12, marriage_date=coalesce($13,marriage_date), partner_death_date=coalesce($14,partner_death_date), partner_unknown=coalesce(nullif($15,''),partner_unknown),
+      prev_names=coalesce(nullif($9,''),prev_names), children=coalesce($10,children), partner_name=coalesce(nullif($11,''),partner_name), partner_dob=$12, marriage_date=coalesce($13,marriage_date), partner_death_date=coalesce($14,partner_death_date), partner_unknown=coalesce(nullif($15,''),partner_unknown), partner_ni=coalesce($17,partner_ni),
       details_done_at=now(), next_action=$16, next_action_date=current_date, updated_at=now() WHERE id=$1`,
-      [L.id, dt(b.dob), clip(b.hmrc_name, 120), ni, pc, clip(b.address, 300), clip(b.years_at_address, 10) || null, clip(b.prev_address, 300), clip(b.prev_names, 200), kids.length ? JSON.stringify(kids) : null, clip(b.partner_name, 120), dt(b.partner_dob), dt(b.marriage_date), dt(b.partner_death_date), clip(b.partner_unknown, 300), "Details completed online: confirm them on the call, then send the pack"]);
+      [L.id, dt(b.dob), clip(b.hmrc_name, 120), ni, pc, clip(b.address, 300), clip(b.years_at_address, 10) || null, clip(b.prev_address, 300), clip(b.prev_names, 200), kids.length ? JSON.stringify(kids) : null, clip(b.partner_name, 120), dt(b.partner_dob), dt(b.marriage_date), dt(b.partner_death_date), clip(b.partner_unknown, 300), "Details completed online: confirm them on the call, then send the pack", normNi(b.partner_ni) || null]);
     const after = await getLeadRow(L.id);
     const V = validation(after, null).filter(v => v.key !== "signature" && v.key !== "hmrc" && v.st !== "ok");
     await log(L.id, "case", `Client completed their details online${V.length ? ". Still to check: " + V.map(v => v.label + " (" + v.msg + ")").join("; ") : ". All checks passed"}`);
@@ -1345,8 +1371,8 @@ app.get("/post/:batch/print", async (req, res) => {
       const pk = await ES.latest(L.id, "pack", ["signed"]);
       if (pk) parts.push(ES.docsForPrint(pk, ["hmrc", "nirequest"]));
     } else if (k === "dwp") {
-      parts.push(letter(dwpAddr, L, `<p>We act for the above client under the enclosed letter of authority. Please send us details of how the client's State Pension was calculated, including any underpayment, arrears and amounts withheld, and any increase based on a husband's, wife's or civil partner's record${L.marriage_date ? ` (married ${fmtDate(iso(L.marriage_date))})` : ""}${L.partner_death_date ? ` (partner died ${fmtDate(iso(L.partner_death_date))})` : ""}.</p>`));
       const pk = await ES.latest(L.id, "pack", ["signed"]);
+      parts.push(letter(dwpAddr, L, dwpRequestBody(L, pk, BRAND, F.company_name || "[company name]")));
       if (pk) parts.push(ES.docsForPrint(pk, ["dwp"]));
     } else if (k === "cf411") {
       parts.push(letter(hmrcAddr, L, `<p><b>CF411 Home Responsibilities Protection claim</b></p><p>We act for the above client as their authorised agent. A valid signed HMRC form 64-8 has been submitted under Agent Reference Number ${esc(F.arn || "[ARN]")}. Please find enclosed the client's completed CF411 claim form and their signed declaration.</p><p>${esc(claimSummary(L)).replace(/\n/g, "<br>")}</p>`));

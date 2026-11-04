@@ -393,7 +393,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
 
   <footer>
     <p><strong style="color:var(--ink)">Missing Years</strong> · Call free on 0800 999 999, weekdays 9am to 5pm.</p>
-    <p>Missing Years is a trading name of [company name], registered in England and Wales, company number [number], registered office [address]. Registered with HMRC as a tax agent and supervised by HMRC for anti-money laundering.</p>
+    <p>Missing Years is a trading name of Tax Magpie Ltd, registered in England and Wales, company number 14851288, registered office 56 Thornbury Road, Stretford, Manchester M32 0QE. Registered with HMRC as a tax agent (Agent Reference Number [ARN to be confirmed]) and supervised by HMRC for anti-money laundering. Registered with the Information Commissioner's Office ([ICO registration number to be confirmed]). VAT number GB 445 9515 68. We are not part of, or endorsed by, HMRC, DWP or the government.</p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p>
     <p>* DWP management information: average arrears of £8,377 paid where an HRP underpayment was identified, 8 January 2024 to 31 March 2025. This is not a typical or guaranteed amount. Eligibility and outcomes depend on your circumstances.</p>
     <p>Already a client? <a href="https://missing-years-crm.onrender.com/status">Check how your claim is going</a> with your reference number.</p>
     <p>We are not part of, or endorsed by, HMRC, DWP or the government. We are not a law firm and we never receive your pension or arrears. You can apply to HMRC yourself for free.</p>
@@ -577,8 +577,12 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     const sel=(id,lab)=>`<div class="field"><label for="${id}">${lab}</label><select id="${id}"><option value="">Choose a year</option>${ky.map(y=>`<option${A[id]===y?" selected":""}>${y}</option>`).join("")}</select></div>`;
     const f=el("div",{class:"form-grid"},sel("kid1","Eldest child born")+sel("kid2","Youngest child born"));
     panel.append(f);
+    const cbw=el("p",{class:"small",id:"cbYears","aria-live":"polite"});panel.append(cbw);
     const err=el("span",{class:"err"});panel.append(err);
-    f.querySelectorAll("select").forEach(x=>x.addEventListener("change",()=>{err.textContent="";}));
+    const cbShow=()=>{const a=+f.querySelector("#kid1").value||+f.querySelector("#kid2").value,b=+f.querySelector("#kid2").value||a;
+      if(!a){cbw.textContent="";return;}const from=Math.max(1978,a),to=Math.min(2009,b+15);
+      cbw.innerHTML=from>to?"Those years fall outside 1978 to 2010, so Home Responsibilities Protection wouldn't apply.":`So you would have received Child Benefit in the tax years <b>${from}–${String(from+1).slice(2)}</b> to <b>${to}–${String(to+1).slice(2)}</b>, until your youngest turned 16. These are the only years we look at, and next we'll leave out any years you worked full time.`;};
+    f.querySelectorAll("select").forEach(x=>x.addEventListener("change",()=>{err.textContent="";cbShow();}));cbShow();
     navRow(()=>{
       const a=f.querySelector("#kid1").value,b=f.querySelector("#kid2").value;
       if(!a&&!b){err.textContent="Choose at least one year, or skip this question";return;}
@@ -773,10 +777,11 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
         <div class="field"><label for="pn">Previous surnames <span class="small">(optional)</span></label><input id="pn" value="${esc(A.mn||"")}" placeholder="e.g. Price"></div>
       </div>
       ${hrpPath()?`<h4 style="margin:6px 0 0">Children ${who==="your"?"you":"they"} received Child Benefit for</h4><div id="kids">${[...Array(kidRows)].map((_,i)=>kidRow(i)).join("")}</div><button type="button" class="linkbtn" id="addKid">Add another child</button>`:""}
-      ${["married","widowed","divorced"].includes(A.status)?`<h4 style="margin:6px 0 0">${A.status==="widowed"?"Late husband, wife or partner":A.status==="divorced"?"Former husband, wife or partner":"Husband, wife or partner"} <span class="small">(if known)</span></h4><div class="form-grid">
+      ${(["married","widowed","divorced"].includes(A.status)||hrpPath())?`<h4 style="margin:6px 0 0">${A.status==="widowed"?"Late husband, wife or partner":A.status==="divorced"?"Former husband, wife or partner":A.status==="married"?"Husband, wife or partner":"The children's other parent"} <span class="small">(if known)</span></h4><p class="small" style="margin:0">HMRC asks for these if you know them. If you don't, for example after a divorce, separation, bereavement or loss of contact, just tell us why below.</p><div class="form-grid">
         <div class="field"><label for="pfn">Full name</label><input id="pfn"></div>
         <div class="field"><label for="pdob">Date of birth</label><input id="pdob" type="date"></div>
-        <div class="field"><label for="md">Date of marriage</label><input id="md" type="date"></div>
+        <div class="field"><label for="pni">National Insurance number</label><input id="pni" autocapitalize="characters"><span class="err" id="pniErr"></span></div>
+        ${["married","widowed","divorced"].includes(A.status)?`<div class="field"><label for="md">Date of marriage</label><input id="md" type="date"></div>`:""}
         ${A.status==="widowed"?`<div class="field"><label for="pdd">Date they died</label><input id="pdd" type="date"></div>`:""}
         <div class="field"><label for="punk">If you don't know these, why? <span class="small">(optional)</span></label><input id="punk" placeholder="e.g. divorced in 1986, no contact"></div></div>`:""}
       <p class="small">Don't guess anything: a wrong detail can get forms rejected. Blank is better than a guess.</p>
@@ -793,12 +798,13 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       const d=q("dd1").value,m=q("dm1").value,y=q("dy1").value;let dob="";
       if(d||m||y){if(!(d&&m&&y))set("dobErr","Choose the day, month and year, or leave all three blank");else{dob=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;const t=new Date(dob+"T12:00:00Z");if(t.getUTCDate()!=+d)set("dobErr","That date doesn't exist. Please check it.");else if(A.born&&y!==A.born)set("dobErr",`Earlier you said ${A.born}. Please check which is right.`);else set("dobErr","");}}
       const ni=q("ni2").value.replace(/\s/g,"").toUpperCase();set("ni2Err",!ni||validNi(ni)?"":"That isn't a valid National Insurance number. Check it or leave it blank");
+      const pni=q("pni")?q("pni").value.replace(/\s/g,"").toUpperCase():"";if(q("pni"))set("pniErr",!pni||validNi(pni)?"":"That isn't a valid National Insurance number. Check it or leave it blank");
       if(q("pc").value.trim()&&!/^[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}$/i.test(q("pc").value.trim()))set("pcErr","Check the postcode");
       if(bad)return;
       const kids=[...f.querySelectorAll(".kidrow")].map((r,i)=>({name:(f.querySelector(`[name=kn${i}]`)||{}).value||"",dob:(f.querySelector(`[name=kd${i}]`)||{}).value||""})).filter(k=>k.name||k.dob);
       const v=id=>q(id)?q(id).value.trim():"";
       const btn=f.querySelector('button[type="submit"]');btn.disabled=true;btn.textContent="Sending…";
-      const j=await post(`/leads/${sent.ref}/details`,{dtoken:sent.dtoken,dob,hmrc_name:v("hn"),ni,postcode:v("pc"),address:[v("ad"),v("town")].filter(Boolean).join(", "),years_at_address:v("yrs"),prev_address:v("pa"),prev_names:v("pn"),children:kids,partner_name:v("pfn"),partner_dob:v("pdob"),marriage_date:v("md"),partner_death_date:v("pdd"),partner_unknown:v("punk")});
+      const j=await post(`/leads/${sent.ref}/details`,{dtoken:sent.dtoken,dob,hmrc_name:v("hn"),ni,postcode:v("pc"),address:[v("ad"),v("town")].filter(Boolean).join(", "),years_at_address:v("yrs"),prev_address:v("pa"),prev_names:v("pn"),children:kids,partner_name:v("pfn"),partner_dob:v("pdob"),partner_ni:pni,marriage_date:v("md"),partner_death_date:v("pdd"),partner_unknown:v("punk")});
       track(j.ok?"details_done":"details_error");
       panel.innerHTML="";
       panel.append(el("span",{class:"eyebrow"},"Thank you"));
