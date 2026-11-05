@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<title>Missing Years Pension Check</title>
+<title>Every Penny Back – State Pension Check</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Check whether missing Home Responsibilities Protection or another error means your State Pension has been underpaid. Free to check, no win no fee.">
 <meta property="og:title" content="Claimed Child Benefit between 1978 and 2010? Check your State Pension">
@@ -186,7 +186,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
 <body>
 <header class="top">
   <div class="wrap nav">
-    <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>Missing Years</a>
+    <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>Every Penny Back</a>
     <nav class="links" aria-label="Main">
       <a class="plain" href="#who">Who's affected</a>
       <a class="plain" href="#how">How it works</a>
@@ -392,8 +392,8 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   </section>
 
   <footer>
-    <p><strong style="color:var(--ink)">Missing Years</strong> · Call free on 0800 999 999, weekdays 9am to 5pm.</p>
-    <p>Missing Years is a trading name of Tax Magpie Ltd, registered in England and Wales, company number 14851288, registered office 56 Thornbury Road, Stretford, Manchester M32 0QE. Registered with HMRC as a tax agent (Agent Reference Number [ARN to be confirmed]) and supervised by HMRC for anti-money laundering. Registered with the Information Commissioner's Office ([ICO registration number to be confirmed]). VAT number GB 445 9515 68. We are not part of, or endorsed by, HMRC, DWP or the government.</p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p>
+    <p><strong style="color:var(--ink)">Every Penny Back</strong> · Call free on 0800 999 999, weekdays 9am to 5pm.</p>
+    <!--firm--><p>Every Penny Back is a trading name of Tax Magpie Ltd, registered in England and Wales, company number 14851288, registered office 56 Thornbury Road, Stretford, Manchester M32 0QE. Registered with HMRC as a tax agent (Agent Reference Number WARN0051407). Anti-money laundering supervision by HMRC (application XBML00000226112 being processed). Registered with the Information Commissioner's Office (application C2079335, registration number to follow). VAT number GB 445 9515 68. We are not part of, or endorsed by, HMRC, DWP or the government.</p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p><!--/firm-->
     <p>* DWP management information: average arrears of £8,377 paid where an HRP underpayment was identified, 8 January 2024 to 31 March 2025. This is not a typical or guaranteed amount. Eligibility and outcomes depend on your circumstances.</p>
     <p>Already a client? <a href="https://missing-years-crm.onrender.com/status">Check how your claim is going</a> with your reference number.</p>
     <p>We are not part of, or endorsed by, HMRC, DWP or the government. We are not a law firm and we never receive your pension or arrears. You can apply to HMRC yourself for free.</p>
@@ -435,7 +435,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   function save(){A._idx=idx;try{localStorage.setItem(SAVE_KEY,JSON.stringify({A,idx,token,at:Date.now()}));}catch(e){}if(token)post("/partial/"+token,{answers:A});}
   function clearSave(){try{localStorage.removeItem(SAVE_KEY);}catch(e){}}
   async function sendLead(){
-    const consentText="I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.";
+    const consentText="I agree to Every Penny Back contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.";
     const j=await post("/leads",{...A,token,consent_text:consentText,source:"website",website:document.getElementById("hp")?.value||"",ref_url:document.referrer||"",utm});
     sent=j.ok?{ok:true,ref:j.ref,dtoken:j.dtoken}:{ok:false,error:j.error};
     if(sent.ok)clearSave();
@@ -545,7 +545,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     const f=el("div",{class:"form-grid"},`<div class="field"><label for="efn">${A.for==="me"?"Your first name":"Your first name"}</label><input id="efn" autocomplete="given-name" value="${esc(A.efn||"")}"><span class="err" id="efnErr"></span></div>
       <div class="field"><label for="eph">${A.for==="me"?"Your phone number":"Your phone number"}</label><input id="eph" type="tel" autocomplete="tel" value="${esc(A.eph||"")}"><span class="hint">A mobile is best, so we can text you</span><span class="err" id="ephErr"></span></div>`);
     panel.append(f);
-    const c=el("label",{class:"consent"},`<input type="checkbox" id="eok" ${A.ok?"checked":""}><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span>`);
+    const c=el("label",{class:"consent"},`<input type="checkbox" id="eok" ${A.ok?"checked":""}><span>I agree to Every Penny Back contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span>`);
     panel.append(c);const err=el("span",{class:"err"});panel.append(err);
     const go=navRow(async()=>{
       const n=f.querySelector("#efn").value.trim(),p=f.querySelector("#eph").value.trim();let bad=false;
@@ -672,11 +672,11 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
       <div class="field"><label for="ph">Your phone number</label><input id="ph" type="tel" autocomplete="tel"><span class="hint" id="phHint">Mobile or landline</span><span class="err" id="phErr"></span></div>
       <div class="field" id="mobWrap" hidden><label for="mob">Your mobile for texts or WhatsApp <span class="small">(optional)</span></label><input id="mob" type="tel"><span class="err" id="mobErr"></span></div>
       <div class="field"><label for="em">Your email <span class="small">(optional)</span></label><input id="em" type="email" autocomplete="email"><span class="hint" id="emHint"></span><span class="err" id="emErr"></span></div>
-    </div>${died?"":`<label class="consent"><input type="checkbox" id="hok"><span>They know about this check and are happy for Missing Years to talk to me about it. I understand they will need to sign any documents themselves.</span></label><span class="err" id="hokErr"></span>`}`;
+    </div>${died?"":`<label class="consent"><input type="checkbox" id="hok"><span>They know about this check and are happy for Every Penny Back to talk to me about it. I understand they will need to sign any documents themselves.</span></label><span class="err" id="hokErr"></span>`}`;
     f.innerHTML=claimant+helper+`
       <div class="field"><label for="bt">Best time to call</label><select id="bt"><option value="">Choose</option><option>Morning, 9am to 12pm</option><option>Afternoon, 12pm to 5pm</option><option>Any time, 9am to 5pm</option></select><span class="err" id="btErr"></span></div>
       <input type="text" id="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">
-      ${A.ok?"":`<label class="consent"><input type="checkbox" id="ok"><span>I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label><span class="err" id="okErr"></span>`}
+      ${A.ok?"":`<label class="consent"><input type="checkbox" id="ok"><span>I agree to Every Penny Back contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.</span></label><span class="err" id="okErr"></span>`}
       <div class="row"><button type="button" class="btn btn-ghost" id="back">Back</button><button type="submit" class="btn btn-primary">See the result</button></div>`;
     panel.append(f);
     const q=id=>f.querySelector("#"+id);

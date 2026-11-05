@@ -9,7 +9,7 @@ const { buildDocs, DOC_TYPES, DOC_CSS, FIRM_FIELDS, COOLING_DAYS, ukDate } = req
 const LINK_DAYS = 30, MAX_TRIES = 5;
 /* fixed declarations the client confirms when signing (aligned with the HMRC-reviewed wording) */
 const DECL_PACK = [
-  "the information I have given is true and complete, and I will tell Missing Years if anything changes",
+  "the information I have given is true and complete, and I will tell Every Penny Back if anything changes",
   "I am signing for myself and I have the ability to make this decision",
   "I have read the final completed version of each document above before signing",
   "I understand DWP pays any arrears directly to me, and the fee is 36% of the arrears I actually receive (30% plus VAT), invoiced only after DWP confirms them and due 14 days from the invoice",
@@ -63,6 +63,10 @@ module.exports = function esign(ctx) {
     const r = await pool.query("SELECT key, value FROM settings");
     const F = Object.fromEntries(r.rows.map(x => [x.key, x.value]));
     F.trading_name = BRAND; if (!F.phone) F.phone = PHONE;
+    /* known company details, used until someone saves different ones in Settings */
+    const DEFAULTS = { company_name: "Tax Magpie Ltd", company_no: "14851288", arn: "WARN0051407",
+      address: "56 Thornbury Road, Stretford, Manchester M32 0QE", email: "hello@everypennyback.co.uk", vat_no: "GB 445 9515 68" };
+    for (const [k, v] of Object.entries(DEFAULTS)) if (!F[k]) F[k] = v;
     return F;
   }
   async function build(L, kind, body) {

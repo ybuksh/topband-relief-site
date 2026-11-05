@@ -4,16 +4,17 @@
 const fs = require("fs"), path = require("path");
 
 const FIRM = {
-  brand: "Missing Years",
+  brand: "Every Penny Back",
   company: "Tax Magpie Ltd",
   number: "14851288",
   office: "56 Thornbury Road, Stretford, Manchester M32 0QE",
-  arn: "[ARN to be confirmed]",
-  ico: "[ICO registration number to be confirmed]",
+  arn: "WARN0051407",
+  ico: "application C2079335, registration number to follow",
+  aml: "application XBML00000226112 being processed",
   vat: "GB 445 9515 68",
-  email: "hello@taxmagpie.co.uk",
-  complaints: "complaints@taxmagpie.co.uk",
-  privacy: "privacy@taxmagpie.co.uk",
+  email: "hello@everypennyback.co.uk",
+  complaints: "complaints@everypennyback.co.uk",
+  privacy: "privacy@everypennyback.co.uk",
   phone: "0800 999 999",
   updated: "November 2026",
   version: "v1.0"
@@ -33,7 +34,7 @@ table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid v
 footer{border-top:1px solid var(--line);margin-top:40px;padding:24px 0 48px;color:var(--muted);font-size:.9rem}
 @media (max-width:560px){nav a{margin:0 12px 0 0}}`;
 
-const firmLine = `${F.brand} is a trading name of ${F.company}, registered in England and Wales, company number ${F.number}, registered office ${F.office}. Registered with HMRC as a tax agent (Agent Reference Number ${F.arn}) and supervised by HMRC for anti-money laundering. Registered with the Information Commissioner's Office (${F.ico}). VAT number ${F.vat}. We are not part of, or endorsed by, HMRC, DWP or the government.`;
+const firmLine = `${F.brand} is a trading name of ${F.company}, registered in England and Wales, company number ${F.number}, registered office ${F.office}. Registered with HMRC as a tax agent (Agent Reference Number ${F.arn}). Anti-money laundering supervision by HMRC (${F.aml}). Registered with the Information Commissioner's Office (${F.ico}). VAT number ${F.vat}. We are not part of, or endorsed by, HMRC, DWP or the government.`;
 
 const page = (file, title, intro, body) => `<!doctype html>
 <html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -161,6 +162,6 @@ for (const [file, [title, intro, body]] of Object.entries(pages)) fs.writeFileSy
 /* keep the home page footer in step with the same details */
 const idx = path.join(out, "index.html");
 let html = fs.readFileSync(idx, "utf8");
-html = html.replace(/<p>Missing Years is a trading name of [^<]*<\/p>/, `<p>${firmLine}</p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p>`);
+html = html.replace(/<!--firm-->[\s\S]*?<!--\/firm-->/, `<!--firm--><p>${firmLine}</p><p><a href="/fees.html">Fees</a> · <a href="/faq.html">FAQ</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></p><!--/firm-->`);
 fs.writeFileSync(idx, html);
 console.log("built", Object.keys(pages).join(", "));

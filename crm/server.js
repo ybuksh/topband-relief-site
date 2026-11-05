@@ -4,7 +4,7 @@ const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const PORT = process.env.PORT || 3000;
-const BRAND = process.env.BRAND || "Missing Years";
+const BRAND = process.env.BRAND || "Every Penny Back";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString("hex");
 const SITE_ORIGINS = (process.env.SITE_ORIGIN || "").split(",").map(s => s.trim()).filter(Boolean);
@@ -617,7 +617,7 @@ app.post("/api/partial", async (req, res) => {
     const t = tok(), f = mapAnswers(A);
     const r = await pool.query(`INSERT INTO leads(source,partial,partial_token,answers,first_name,phone,for_whom,cb,care,consent,consent_text,next_action,next_action_date,ip,user_agent,referrer,utm,helper_name,contact_name,last_name)
       VALUES('website',true,$1,$2,$3,$4,$5,$6,$7,true,$8,'Unfinished check: we text a reminder; call if they don''t finish',$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
-      [t, JSON.stringify(A), name, phone, f.for_whom, f.cb, f.care, "I agree to Missing Years contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.", nextWorkingDay(today()), ipOfReq(req) || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null, f.for_whom === "me" ? null : name, f.for_whom === "me" ? null : name, f.for_whom === "me" ? "" : "(person they're helping)"]);
+      [t, JSON.stringify(A), name, phone, f.for_whom, f.cb, f.care, "I agree to Every Penny Back contacting me about this check by phone, text, email and WhatsApp. I understand I can claim from HMRC myself for free.", nextWorkingDay(today()), ipOfReq(req) || null, clip(req.headers["user-agent"], 300) || null, clip(b.ref_url, 300) || null, clip(b.utm, 300) || null, f.for_whom === "me" ? null : name, f.for_whom === "me" ? null : name, f.for_whom === "me" ? "" : "(person they're helping)"]);
     await log(r.rows[0].id, "created", `Check started on the website by ${name}${f.for_whom !== "me" ? " (for someone else)" : ""}; not finished yet`);
     res.json({ ok: true, token: t });
   } catch (e) { console.error(e); res.status(500).json({ ok: false }); }

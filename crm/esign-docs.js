@@ -39,7 +39,7 @@ function buildDocs(kind, L, F, opts = {}) {
   const missing = [];
   const test = !!L.is_test;
   const need = (v, what) => { if (v == null || String(v).trim() === "") { missing.push(what); return test ? `[TEST: ${what} not set]` : `[${what} missing]`; } return v; };
-  const brand = F.trading_name || "Missing Years";
+  const brand = F.trading_name || "Every Penny Back";
   const firm = {
     name: need(F.company_name, "Firm: company name"), no: need(F.company_no, "Firm: company number"),
     address: need(F.address, "Firm: registered office address"), agent: need(F.agent_code, "Firm: HMRC agent code"),
