@@ -56,11 +56,14 @@ button,input,select{font:inherit;color:inherit}
 header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
-.logo{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.2rem;color:var(--ink);text-decoration:none}
+.logo{display:flex;align-items:center;gap:10px;white-space:nowrap;flex-shrink:0;font-family:var(--display);font-weight:700;font-size:1.2rem;color:var(--ink);text-decoration:none}
 .logo-mark{display:grid;grid-template-columns:repeat(3,7px);gap:3px}
 .logo-mark i{width:7px;height:7px;border-radius:2px;background:var(--accent)}
 .logo-mark i:nth-child(5){background:var(--gap)}
-.links{display:flex;gap:22px;align-items:center}
+.links{display:flex;gap:18px;align-items:center}
+.links a.plain{white-space:nowrap}
+.links .phone .ph-num,.links .btn{white-space:nowrap}
+@media (max-width:1360px){.links a.plain[href="#who"],.links a.plain[href="#how"]{display:none}}
 .links a.plain{color:var(--muted);text-decoration:none;font-weight:700;font-size:.95rem}
 .links a.plain:hover{color:var(--ink)}
 @media (max-width:760px){.links a.plain{display:none}}
@@ -73,7 +76,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .phone{display:flex;flex-direction:column;align-items:flex-end;text-decoration:none;color:var(--ink);line-height:1.2}
 .ph-num{font-weight:700;font-size:1.1rem;font-variant-numeric:tabular-nums}
 .ph-hrs{font-size:.78rem;color:var(--muted)}
-@media (max-width:560px){.ph-hrs{display:none}.textsize{display:none}}
+@media (max-width:560px){.ph-hrs{display:none}.textsize{display:none}.links>.btn-primary{display:none}.logo{font-size:1.05rem}}
 html.big body{font-size:22px}
 .hero-q{background:var(--paper);border:2px solid var(--accent);border-radius:16px;padding:18px 20px;display:grid;gap:12px}
 .hero-q p{font-weight:700;font-size:1.1rem}
