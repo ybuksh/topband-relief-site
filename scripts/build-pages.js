@@ -16,6 +16,7 @@ const FIRM = {
   complaints: "complaints@everypennyback.co.uk",
   privacy: "privacy@everypennyback.co.uk",
   phone: "0161 399 2916",
+  otherNames: "Years Back, Pension Uplift, Marriage Tax Back and Uniform Tax Back",
   updated: "November 2026",
   version: "v1.0"
 };
@@ -34,7 +35,7 @@ table{border-collapse:collapse;width:100%;margin:10px 0}th,td{border:1px solid v
 footer{border-top:1px solid var(--line);margin-top:40px;padding:24px 0 48px;color:var(--muted);font-size:.9rem}
 @media (max-width:560px){nav a{margin:0 12px 0 0}}`;
 
-const firmLine = `${F.brand} is a trading name of ${F.company}, registered in England and Wales, company number ${F.number}, registered office ${F.office}. Registered with HMRC as a tax agent (Agent Reference Number ${F.arn}). Anti-money laundering supervision by HMRC (${F.aml}). Registered with the Information Commissioner's Office (${F.ico}). VAT number ${F.vat}. We are not part of, or endorsed by, HMRC, DWP or the government.`;
+const firmLine = `${F.brand} is a trading name of ${F.company}, registered in England and Wales, company number ${F.number}, registered office ${F.office}. Registered with HMRC as a tax agent (Agent Reference Number ${F.arn}). Anti-money laundering supervision by HMRC (${F.aml}). Registered with the Information Commissioner's Office (${F.ico}). VAT number ${F.vat}. ${F.otherNames} are also trading names of ${F.company}. Contact: ${F.phone}, ${F.email}. We are not part of, or endorsed by, HMRC, DWP or the government.`;
 
 const page = (file, title, intro, body) => `<!doctype html>
 <html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
