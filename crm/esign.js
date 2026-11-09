@@ -95,7 +95,7 @@ module.exports = function esign(ctx) {
     .steps-mini{display:flex;gap:6px;flex-wrap:wrap}.steps-mini span{font-size:.85rem;padding:3px 10px;border-radius:999px;background:var(--tint)}
     .err{color:var(--bad);font-weight:600}</style>
     <div class="signwrap"><div class="noprint"><strong style="font-size:1.1rem">${esc(BRAND)}</strong></div>${inner}
-    <p class="muted noprint">Questions? Call us free on ${esc(PHONE)}, weekdays 9am to 5pm. You can always ask for paper copies instead.</p></div>`, { bare: true });
+    <p class="muted noprint">Questions? Call us on ${esc(PHONE)}, weekdays 9am to 5pm. You can always ask for paper copies instead.</p></div>`, { bare: true });
   const notFound = () => shell("Signing link", `<div class="panel"><h1>This link isn't working</h1><p>It may have expired or been replaced by a newer version. Please call us and we'll help.</p></div>`);
   async function byToken(t) { if (!/^[A-Za-z0-9_-]{20,80}$/.test(t || "")) return null; return (await pool.query("SELECT * FROM sign_requests WHERE token=$1", [t])).rows[0]; }
   const getLead = async id => (await pool.query("SELECT * FROM leads WHERE id=$1", [id])).rows[0];
@@ -201,7 +201,7 @@ module.exports = function esign(ctx) {
         await event(r.id, "Asked us to call to help", req);
         await pool.query("UPDATE leads SET next_action='Client asked for help with their signing link: call them today', next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id]);
         await log(r.lead_id, "esign", "Client pressed 'Please call me' on the signing page");
-        res.send(shell("We'll call you", `<div class="panel"><h1>Thank you, we'll call you</h1><p>One of our team will call you shortly, weekdays 9am to 5pm, to help. You can also call us free on ${esc(PHONE)}.</p></div>`));
+        res.send(shell("We'll call you", `<div class="panel"><h1>Thank you, we'll call you</h1><p>One of our team will call you shortly, weekdays 9am to 5pm, to help. You can also call us on ${esc(PHONE)}.</p></div>`));
       });
       app.post("/sign/:token/wrong", async (req, res) => {
         const r = await byToken(req.params.token); if (!r) return res.status(404).send(notFound());
@@ -210,7 +210,7 @@ module.exports = function esign(ctx) {
         await event(r.id, "Client said some details are wrong: " + what, req);
         await pool.query("UPDATE leads SET stage=CASE WHEN stage='pack_sent' THEN 'resign' ELSE stage END, next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [r.lead_id, "Client says details are wrong before signing: correct them and send a new version"]);
         await log(r.lead_id, "esign", "Client reported wrong details before signing: " + what);
-        res.send(shell("Thank you", `<div class="panel"><h1>Thank you for telling us</h1><p>Please don't sign this version. We'll correct the details and send you a new copy, usually the same working day. If you'd like to talk it through, call us free on ${esc(PHONE)}.</p></div>`));
+        res.send(shell("Thank you", `<div class="panel"><h1>Thank you for telling us</h1><p>Please don't sign this version. We'll correct the details and send you a new copy, usually the same working day. If you'd like to talk it through, call us on ${esc(PHONE)}.</p></div>`));
       });
       app.post("/sign/:token/verify", async (req, res) => {
         const r = await byToken(req.params.token); if (!r) return res.status(404).send(notFound());
@@ -271,7 +271,7 @@ module.exports = function esign(ctx) {
           await pool.query("UPDATE leads SET next_action=$2, next_action_date=current_date, updated_at=now() WHERE id=$1", [L.id, "CF411 signed: send it to HMRC"]);
           await log(L.id, "esign", `Client signed the CF411 declaration (version ${r.version}) online.`);
         }
-        sendEmail(L.email, `${BRAND}: your signed documents`, `Dear ${L.title || ""} ${L.last_name},\n\nThank you for signing. You can view and print your signed ${r.kind === "cf411" ? "claim declaration" : "documents"} at any time here:\n${linkFor(req, r)}\n\n${r.kind === "pack" ? `You can cancel within ${COOLING_DAYS} days of signing and pay nothing, even if we've started work.\n\n` : ""}Questions? Call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
+        sendEmail(L.email, `${BRAND}: your signed documents`, `Dear ${L.title || ""} ${L.last_name},\n\nThank you for signing. You can view and print your signed ${r.kind === "cf411" ? "claim declaration" : "documents"} at any time here:\n${linkFor(req, r)}\n\n${r.kind === "pack" ? `You can cancel within ${COOLING_DAYS} days of signing and pay nothing, even if we've started work.\n\n` : ""}Questions? Call us on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
           .then(ok => ok && event(r.id, "Signed copy emailed to client"));
         res.redirect(`/sign/${r.token}/copy?done=1`);
       });
@@ -344,7 +344,7 @@ module.exports = function esign(ctx) {
         else await pool.query(`UPDATE leads SET stage=CASE WHEN stage IN ('preparing','on_hold') THEN 'cf411_sent' ELSE stage END, next_action='Chase the CF411 signature', next_action_date=$2, updated_at=now() WHERE id=$1`, [L.id, addDays(today(), 5)]);
         await log(L.id, "esign", `${kind === "cf411" ? "CF411 declaration" : "Sign-up pack"} version ${version} sent for signature${open.length ? ` (version ${open.map(o => o.version).join(", ")} replaced)` : ""}${hadSigned && kind === "pack" ? ". This is a corrected version needing a fresh signature" : ""}.`);
         const link = linkFor(req, r);
-        sendEmail(L.email, `${BRAND}: your ${kind === "cf411" ? "claim form" : "documents"} to sign`, `Dear ${L.title || ""} ${L.last_name},\n\nYour ${kind === "cf411" ? "claim declaration is" : "documents are"} ready to read and sign:\n${link}\n\nYou'll be asked for your date of birth to open them. Everything is filled in for you; please read each document before signing. If you'd prefer paper copies, there's a button on the page, or call us.\n\n${kind === "pack" ? `You can cancel within ${COOLING_DAYS} days of signing and pay nothing, even if we've started work.\n\n` : ""}Questions? Call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
+        sendEmail(L.email, `${BRAND}: your ${kind === "cf411" ? "claim form" : "documents"} to sign`, `Dear ${L.title || ""} ${L.last_name},\n\nYour ${kind === "cf411" ? "claim declaration is" : "documents are"} ready to read and sign:\n${link}\n\nYou'll be asked for your date of birth to open them. Everything is filled in for you; please read each document before signing. If you'd prefer paper copies, there's a button on the page, or call us.\n\n${kind === "pack" ? `You can cancel within ${COOLING_DAYS} days of signing and pay nothing, even if we've started work.\n\n` : ""}Questions? Call us on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
           .then(ok => ok && event(r.id, `Link emailed to ${L.email}`));
         res.redirect(`/lead/${L.id}/esign/${r.id}?sent=1`);
       });

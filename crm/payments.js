@@ -48,7 +48,7 @@ module.exports = function payments(ctx) {
   }
 
   const shell = (title, inner) => page(title, `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px;font-size:18px"><div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">${esc(title)}</h1></div>${inner}
-    <p class="muted">Questions or need more time? Call us free on ${esc(PHONE)}, weekdays 9am to 5pm. We can agree a payment plan.</p></div>`, { bare: true });
+    <p class="muted">Questions or need more time? Call us on ${esc(PHONE)}, weekdays 9am to 5pm. We can agree a payment plan.</p></div>`, { bare: true });
   const byToken = async t => /^[A-Za-z0-9_-]{20,40}$/.test(t || "") ? (await pool.query("SELECT * FROM leads WHERE pay_token=$1", [t])).rows[0] : null;
   const origin = req => process.env.PUBLIC_URL || `https://${req.headers.host}`;
 

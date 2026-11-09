@@ -9,13 +9,13 @@ const FIRM = {
   number: "14851288",
   office: "56 Thornbury Road, Stretford, Manchester M32 0QE",
   arn: "WARN0051407",
-  ico: "application C2079335, registration number to follow",
+  ico: "registration number ZC294690",
   aml: "application XBML00000226112 being processed",
   vat: "GB 445 9515 68",
   email: "hello@everypennyback.co.uk",
   complaints: "complaints@everypennyback.co.uk",
   privacy: "privacy@everypennyback.co.uk",
-  phone: "0800 999 999",
+  phone: "0161 399 2916",
   updated: "November 2026",
   version: "v1.0"
 };

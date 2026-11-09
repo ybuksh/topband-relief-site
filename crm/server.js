@@ -11,7 +11,7 @@ const SITE_ORIGINS = (process.env.SITE_ORIGIN || "").split(",").map(s => s.trim(
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const FROM_EMAIL = process.env.FROM_EMAIL || "";
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "";
-const PHONE = process.env.PHONE || "0800 999 999";
+const PHONE = process.env.PHONE || "0161 399 2916";
 const FEE_RATE = 0.30, VAT_RATE = 0.20, PAY_DAYS = 14;
 
 const DB_URL = process.env.DATABASE_URL || process.env.database_url || "";
@@ -681,7 +681,7 @@ app.post("/api/leads", async (req, res) => {
     const L = await getLeadRow(id);
     await MSG.queue(L, "welcome");
     sendEmail(f.email, `${BRAND}: we've received your State Pension check`,
-      `Dear ${f.contact_name || ((f.title ? f.title + " " : "") + f.last_name)},\n\nThank you for completing our State Pension check. The reference is ${id}. One of our team will call within one working day${f.best_time ? " (" + f.best_time.toLowerCase() + ")" : ""} to go through the answers.\n\nThere is nothing to pay and no obligation. Receiving Child Benefit doesn't automatically mean anything is owed: we only make a claim if the HMRC and DWP records show one is supported. You can also apply to HMRC yourself for free.\n\nIf you have any questions, call us free on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
+      `Dear ${f.contact_name || ((f.title ? f.title + " " : "") + f.last_name)},\n\nThank you for completing our State Pension check. The reference is ${id}. One of our team will call within one working day${f.best_time ? " (" + f.best_time.toLowerCase() + ")" : ""} to go through the answers.\n\nThere is nothing to pay and no obligation. Receiving Child Benefit doesn't automatically mean anything is owed: we only make a claim if the HMRC and DWP records show one is supported. You can also apply to HMRC yourself for free.\n\nIf you have any questions, call us on ${PHONE}, weekdays 9am to 5pm.\n\n${BRAND}`)
       .then(ok => ok && log(id, "email", "Confirmation email sent"));
     sendEmail(NOTIFY_EMAIL, `New enquiry #${id}: ${f.first_name} ${f.last_name}`, `New enquiry from the website.\nBest time to call: ${f.best_time || "not given"}\nPhone: ${f.phone}\n\nOpen the CRM to view it.`);
     res.json({ ok: true, ref: id, dtoken });
@@ -714,7 +714,7 @@ const statusTries = new Map();
 function statusPage(inner) {
   return page("Check your claim", `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px">
   <div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">Check how your claim is going</h1></div>${inner}
-  <p class="muted">Questions? Call us free on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
+  <p class="muted">Questions? Call us on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
 }
 const statusForm = (err, v = {}) => `<form class="panel" method="post" action="/status" autocomplete="off">
   ${err ? `<p class="pill bad" role="alert">${esc(err)}</p>` : `<p class="muted">For your security, enter your reference number and the details below exactly as you gave them to us.</p>`}
@@ -767,7 +767,7 @@ app.get("/ni-record", (req, res) => res.send(page("Your National Insurance recor
     <li>Find the years between <b>1978 and 2010</b>. Look for years shown as gaps or "not a full year".</li>
     <li>Take a screenshot or a photo of those years. Make sure the years and the words next to them are readable.</li>
     <li>Send it to us: go to <a href="/status">Check your claim</a>, enter your details and use "Send us a document". You can also send it by WhatsApp to the number we message you from.</li></ol></div>
-  <div class="panel"><p>Can't get online or stuck? That's fine. Call us free on ${esc(PHONE)}, weekdays 9am to 5pm, and we'll take care of it.</p></div></div>`, { bare: true })));
+  <div class="panel"><p>Can't get online or stuck? That's fine. Call us on ${esc(PHONE)}, weekdays 9am to 5pm, and we'll take care of it.</p></div></div>`, { bare: true })));
 
 /* public: e-signing */
 ES.publicRoutes(app);
@@ -797,7 +797,7 @@ function slots() {
 }
 app.get("/book/:token", async (req, res) => {
   const L = /^[A-Za-z0-9_-]{20,60}$/.test(req.params.token) ? (await pool.query("SELECT * FROM leads WHERE book_token=$1", [req.params.token])).rows[0] : null;
-  const shell = inner => page("Book a call", `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px;font-size:18px"><div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">Pick a time for us to call</h1></div>${inner}<p class="muted">Or call us free on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
+  const shell = inner => page("Book a call", `<div style="max-width:620px;margin:24px auto;display:grid;gap:16px;font-size:18px"><div><strong style="font-size:1.1rem">${esc(BRAND)}</strong><h1 style="margin-top:6px">Pick a time for us to call</h1></div>${inner}<p class="muted">Or call us on ${esc(PHONE)}, weekdays 9am to 5pm.</p></div>`, { bare: true });
   if (!L) return res.status(404).send(shell(`<div class="panel"><p>This link isn't working. Please call us and we'll help.</p></div>`));
   if (req.query.done) return res.send(shell(`<div class="panel" style="border-color:var(--good)"><p><b>Thank you.</b> We'll call ${esc(L.phone)} on ${esc(new Date(L.booked_at).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }))}.</p></div>`));
   res.send(shell(`<form method="post" class="panel" style="display:grid;gap:14px"><p>We'll call <b>${esc(L.phone)}</b>. Choose a day and time (UK time):</p>
@@ -1384,7 +1384,7 @@ app.get("/post/:batch/print", async (req, res) => {
       const open = await ES.latest(L.id, "pack", ["sent", "opened"]);
       parts.push(`<article class="doc"><p style="text-align:right">${firm}</p><p>${esc([L.title, L.first_name, L.last_name].filter(Boolean).join(" "))}<br>${esc(L.address || "[address]")}<br>${esc(L.postcode || "")}</p><p>${fmtDate(today())}</p>
         <p>Dear ${esc(L.title || "")} ${esc(L.last_name)},</p><p>As you asked, here are paper copies of your documents. Please read each one, sign and date where shown, and return them in the prepaid envelope. Everything has been filled in for you; please don't change anything. If something is wrong, call us and we'll send a corrected copy.</p>
-        <p>You can cancel within 14 days of signing and pay nothing, even if we've started work. Questions? Call us free on ${esc(F.phone || PHONE)}, weekdays 9am to 5pm.</p><p>Yours sincerely,</p><p>${esc(BRAND)}</p></article>`);
+        <p>You can cancel within 14 days of signing and pay nothing, even if we've started work. Questions? Call us on ${esc(F.phone || PHONE)}, weekdays 9am to 5pm.</p><p>Yours sincerely,</p><p>${esc(BRAND)}</p></article>`);
       if (open) parts.push(ES.docsForPrint(open, null, true)); else parts.push(`<article class="doc noprint" style="border:2px dashed var(--bad)"><b>No open sign-up pack for ${esc(L.first_name)} ${esc(L.last_name)}. Prepare one on their record first.</b></article>`);
     }
   }

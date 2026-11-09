@@ -48,13 +48,13 @@ module.exports = function messaging(ctx) {
   /* the client-facing wording for each automatic message */
   const T = {
     welcome: L => `Hello ${greet(L)}, thank you for your State Pension check with ${BRAND}. Your reference is ${L.id}. We'll call ${L.best_time ? "in the " + String(L.best_time).split(",")[0].toLowerCase() : "soon"} from ${PHONE}. Save this number so you know it's us. Reply here any time.`,
-    finish1: L => `Hello ${L.contact_name || L.first_name || "there"}, you started a State Pension check with ${BRAND} but didn't finish. It takes about a minute to complete: ${SITE}/?resume=${L.partial_token}#check. Or call us free on ${PHONE}.`,
+    finish1: L => `Hello ${L.contact_name || L.first_name || "there"}, you started a State Pension check with ${BRAND} but didn't finish. It takes about a minute to complete: ${SITE}/?resume=${L.partial_token}#check. Or call us on ${PHONE}.`,
     finish2: L => `${BRAND}: your State Pension check is saved and ready to finish whenever suits you: ${SITE}/?resume=${L.partial_token}#check. Prefer to talk it through? Call ${PHONE}, weekdays 9am to 5pm.`,
-    missed_call: L => `Hello ${greet(L)}, ${BRAND} tried to call you about your State Pension check (ref ${L.id}). Pick a time that suits you: ${link("/book/" + L.book_token)} or call us free on ${PHONE}.`,
+    missed_call: L => `Hello ${greet(L)}, ${BRAND} tried to call you about your State Pension check (ref ${L.id}). Pick a time that suits you: ${link("/book/" + L.book_token)} or call us on ${PHONE}.`,
     booked: L => `Thank you ${greet(L)}. We'll call you on ${L.booked_at ? new Date(L.booked_at).toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) : "the time you chose"} from ${PHONE}.`,
     id_docs: L => `Hello ${greet(L)}, to finish our identity check we need a photo of your passport or driving licence, and a recent bill or bank letter with your address. Send them here: ${link("/status")} or call ${PHONE} if you'd rather post copies.`,
     sign_chase1: L => `Hello ${greet(L)}, a reminder from ${BRAND}: your documents are ready to read and sign. Use the link we sent, or call ${PHONE} if you'd like paper copies or any help.`,
-    sign_chase2: L => `Hello ${greet(L)}, your ${BRAND} documents are still waiting to be signed. There's no rush and no obligation. Call us free on ${PHONE} if you have questions or would prefer paper copies.`,
+    sign_chase2: L => `Hello ${greet(L)}, your ${BRAND} documents are still waiting to be signed. There's no rush and no obligation. Call us on ${PHONE} if you have questions or would prefer paper copies.`,
     cooling: L => `Thank you for signing with ${BRAND}, ${greet(L)}. You can cancel free until ${fmtDate(addDays(iso(L.signed_at), 14))}, even if we've started work. Just reply to this message or call ${PHONE}.`,
     ni_share: L => `Hello ${greet(L)}. If you use GOV.UK online, you can speed things up by sending us a screenshot of your National Insurance record. It's optional; we never need your password. How to: ${link("/ni-record")}`,
     waiting: L => `Update from ${BRAND}: we've asked HMRC and DWP for your records. Replies usually take several months. If they write to you directly, please send us a photo of the letter: ${link("/status")}`,
@@ -116,7 +116,7 @@ module.exports = function messaging(ctx) {
   async function sendOne(m) {
     const L = (await pool.query("SELECT * FROM leads WHERE id=$1", [m.lead_id])).rows[0]; if (!L) return;
     let res;
-    if (m.channel === "email") res = (await sendEmail(m.to_addr, m.subject, m.body + `\n\n${BRAND}\nCall free on ${PHONE}, weekdays 9am to 5pm.`)) ? { ok: true } : { ok: false, error: "Email not configured or failed" };
+    if (m.channel === "email") res = (await sendEmail(m.to_addr, m.subject, m.body + `\n\n${BRAND}\nCall us on ${PHONE}, weekdays 9am to 5pm.`)) ? { ok: true } : { ok: false, error: "Email not configured or failed" };
     else res = await twilioSend(m, L);
     if (res.ok) {
       await pool.query("UPDATE messages SET status='sent', sent_at=now(), provider_id=$2, error=NULL WHERE id=$1", [m.id, res.id || null]);
