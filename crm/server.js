@@ -175,14 +175,19 @@ const ty = y => `${y}–${String(y + 1).slice(2)}`;
 const parseYears = v => [...new Set(String(v ?? "").split(/[^0-9]+/).map(Number).filter(y => y >= 1978 && y <= 2009))].sort((a, b) => a - b);
 /* the tax years to ask HMRC about: Child Benefit years (child under 16), 1978-79 to 2009-10, minus full-time years */
 /* tax year a date falls in (tax years start 6 April) */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const taxYearOf = d => { const x = new Date(String(d).slice(0, 10) + "T12:00:00Z"); const y = x.getUTCFullYear(); return (x.getUTCMonth() > 3 || (x.getUTCMonth() === 3 && x.getUTCDate() >= 6)) ? y : y - 1; };
 const kids = L => (Array.isArray(L.children) ? L.children : []).filter(c => c && (c.name || c.dob));
 /* Child Benefit years for children under 16: from the eldest's birth to the youngest's 16th birthday */
 function cbRange(L) {
   const dobs = kids(L).map(c => c.dob).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d || "")).sort();
   if (L.cb_from && L.cb_to) return [L.cb_from, L.cb_to];
-  if (dobs.length) { const last = dobs[dobs.length - 1]; return [taxYearOf(dobs[0]), taxYearOf((Number(last.slice(0, 4)) + 16) + last.slice(4)) - 1]; }
-  if (L.kid1) return [Number(L.kid1), L.kid2 ? Number(L.kid2) + 15 : Number(L.kid1) + 15];
+  /* HMRC gives HRP only for a full tax year with Child Benefit for a child under 16: the first full year starts on the
+     6 April on or after the eldest's birth, and the last one ends before the youngest's 16th birthday */
+  if (dobs.length) { const last = dobs[dobs.length - 1]; return [taxYearOf(dobs[0]) + (dobs[0].slice(5) === "04-06" ? 0 : 1), taxYearOf((Number(last.slice(0, 4)) + 16) + last.slice(4)) - 1]; }
+  /* year only: keep both end years in, so no year is missed; with the month known, work out the full tax years */
+  if (L.kid1) { const a = Number(L.kid1), b = Number(L.kid2 || L.kid1), am = Number(L.kid1m), bm = Number(L.kid2m || (L.kid2 ? 0 : L.kid1m));
+    return [am ? (am <= 3 ? a : a + 1) : a, bm ? (bm <= 3 ? b + 14 : b + 15) : b + 15]; }
   return null;
 }
 const hrpMap = L => (L.hrp_years && typeof L.hrp_years === "object" ? L.hrp_years : {});
@@ -347,6 +352,8 @@ async function initDb() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS ni_number TEXT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS kid1 INT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS kid2 INT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS kid1m INT;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS kid2m INT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS cb_from INT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS cb_to INT;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS ft TEXT;
@@ -586,6 +593,7 @@ function mapAnswers(b) {
     title: clip(b.ti, 10), first_name: clip(b.fn, 80) || (forWhom === "me" ? clip(b.efn, 80) : ""), last_name: clip(b.ln, 80), maiden_name: clip(b.mn, 80),
     best_time: clip(b.bt, 60), consent: b.ok === true || b.ok === "true",
     ni_number: normNi(b.ni) || null, kid1: parseInt(b.kid1, 10) || null, kid2: parseInt(b.kid2, 10) || null,
+    kid1m: (m => m >= 1 && m <= 12 ? m : null)(parseInt(b.kid1m, 10)), kid2m: (m => m >= 1 && m <= 12 ? m : null)(parseInt(b.kid2m, 10)),
     ft: ftMode || null, ft_years: ftMode === "some" && Array.isArray(b.fty) ? parseYears(b.fty.join(",")).join(",") : null,
     ft_from: parseInt(b.ftFrom, 10) || null, sp_band: clip(b.spb, 10) || null, sp_start_year: parseInt(b.spy, 10) || null,
     helper_name: helped ? [clip(b.hfn || b.efn, 60), clip(b.hln, 60)].filter(Boolean).join(" ") || null : null,
@@ -603,7 +611,7 @@ function mapAnswers(b) {
   f.contact_name = helped && !claimantPhone ? clip(b.hfn || b.efn, 60) || null : null;
   return f;
 }
-const leadCols = ["cb", "care", "for_whom", "pension", "born", "marital", "credit", "title", "first_name", "last_name", "maiden_name", "email", "phone", "mobile", "best_time", "ni_number", "kid1", "kid2", "ft", "ft_years", "ft_from", "sp_band", "sp_start_year", "helper_name", "helper_relation", "helper_ok", "helper_phone", "helper_email", "death_date", "contact_name"];
+const leadCols = ["cb", "care", "for_whom", "pension", "born", "marital", "credit", "title", "first_name", "last_name", "maiden_name", "email", "phone", "mobile", "best_time", "ni_number", "kid1", "kid2", "kid1m", "kid2m", "ft", "ft_years", "ft_from", "sp_band", "sp_start_year", "helper_name", "helper_relation", "helper_ok", "helper_phone", "helper_email", "death_date", "contact_name"];
 
 /* step 1: name and phone early, so an unfinished check can be picked up */
 app.post("/api/partial", async (req, res) => {
@@ -1090,7 +1098,7 @@ app.get("/lead/:id", async (req, res) => {
         ${L.mobile ? `<dt>Mobile</dt><dd class="num">${esc(L.mobile)}</dd>` : ""}
         <dt>Child Benefit 1978–2010</dt><dd>${esc(label("cb", L.cb))}</dd>
         ${L.care ? `<dt>Carer or foster</dt><dd>${esc(label("care", L.care))}</dd>` : ""}
-        <dt>Born</dt><dd>${L.born || ""}</dd><dt>Children born</dt><dd>${L.kid1 ? (L.kid1 === L.kid2 || !L.kid2 ? L.kid1 : `${L.kid1} to ${L.kid2}`) : "Not given"}</dd>
+        <dt>Born</dt><dd>${L.born || ""}</dd><dt>Children born</dt><dd>${L.kid1 ? ((y, m) => (m ? MONTHS[m - 1] + " " : "") + y)(L.kid1, L.kid1m) + (L.kid1 === L.kid2 && L.kid1m === L.kid2m || !L.kid2 ? "" : " to " + ((y, m) => (m ? MONTHS[m - 1] + " " : "") + y)(L.kid2, L.kid2m)) : "Not given"}</dd>
         <dt>Full time</dt><dd>${esc(label("ft", L.ft)) || "Not given"}${ftList.length ? `<br><small class="muted">${esc(yearRanges(ftList))}</small>` : ""}</dd>
         <dt>Marital status</dt><dd>${esc(label("marital", L.marital))}</dd>
         <dt>State Pension</dt><dd>${esc(label("pension", L.pension))}</dd><dt>Pension Credit</dt><dd>${esc(label("credit", L.credit))}</dd></dl></div>
@@ -1106,8 +1114,8 @@ app.get("/lead/:id", async (req, res) => {
           <label>Date of birth <input type="date" name="dob" value="${iso(L.dob)}"></label>
           <label>Postcode <input name="postcode" id="pc" value="${esc(L.postcode)}" autocapitalize="characters"><small id="pcmsg" class="muted"></small></label>
           <script>(function(){var i=document.getElementById("pc"),m=document.getElementById("pcmsg");function chk(){var v=i.value.trim();if(!v){m.textContent="";return;}fetch("https://api.postcodes.io/postcodes/"+encodeURIComponent(v)).then(function(r){return r.json();}).then(function(j){if(j.status===200){i.value=j.result.postcode;m.style.color="var(--good)";m.textContent="Valid postcode: "+[j.result.admin_ward,j.result.admin_district].filter(Boolean).join(", ");}else{m.style.color="var(--bad)";m.textContent="Postcode not found. Check it with the client.";}}).catch(function(){m.textContent="";});}i.addEventListener("change",chk);if(i.value)chk();})();</script>
-          <label>Child Benefit from (tax year) <input name="cb_from" inputmode="numeric" placeholder="${L.kid1 || "e.g. 1981"}" value="${L.cb_from ?? ""}"></label>
-          <label>Child Benefit to (tax year) <input name="cb_to" inputmode="numeric" placeholder="${L.kid2 ? Number(L.kid2) + 15 : "e.g. 1996"}" value="${L.cb_to ?? ""}"></label>
+          <label>Child Benefit from (tax year) <input name="cb_from" inputmode="numeric" placeholder="${(cbRange({ ...L, cb_from: null, cb_to: null }) || [])[0] || "e.g. 1981"}" value="${L.cb_from ?? ""}"></label>
+          <label>Child Benefit to (tax year) <input name="cb_to" inputmode="numeric" placeholder="${(cbRange({ ...L, cb_from: null, cb_to: null }) || [])[1] || "e.g. 1996"}" value="${L.cb_to ?? ""}"></label>
         </div>
         <label>Address (first line, town) <input name="address" value="${esc(L.address)}" style="width:100%" placeholder="e.g. 12 Acacia Avenue, Stockport"></label>
         <label>Full-time tax years (start year, e.g. 1979, 1980, 1995) <input name="ft_years" value="${esc(ftList.join(", "))}" style="width:100%"></label>

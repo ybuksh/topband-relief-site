@@ -464,7 +464,7 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
     {id:"spinfo",custom:renderSpInfo,when:()=>A.pension==="less"||A.pension==="unsure"||A.pension==="full"},
     {id:"born",q:()=>you("What year were you born?","What year were they born?"),select:years,help:"This tells us which State Pension rules apply."},
     {id:"kids",q:()=>you("Roughly when were your children born?","Roughly when were their children born?"),custom:renderKids,when:()=>A.cb==="yes"||A.cb==="unsure",
-     help:"This tells us which years to look at. An approximate year is fine."},
+     help:"This tells us which years to look at. An approximate year is fine. Add the month if you know it."},
     {id:"ft",custom:renderWork,when:hrpPath},
     {id:"fty",q:()=>you("Which tax years did you work full time?","Which tax years did they work full time?"),custom:renderFtYears,when:()=>A.ft==="some",
      help:"Tap each tax year. A tax year runs from April to April, so 1985–86 means April 1985 to April 1986."},
@@ -577,23 +577,31 @@ footer{border-top:1px solid var(--line);padding-block:32px 52px;display:grid;gap
   }
   function renderKids(s){
     const ky=[];for(let y=2010;y>=1950;y--)ky.push(String(y));
-    const sel=(id,lab)=>`<div class="field"><label for="${id}">${lab}</label><select id="${id}"><option value="">Choose a year</option>${ky.map(y=>`<option${A[id]===y?" selected":""}>${y}</option>`).join("")}</select></div>`;
+    const km=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const sel=(id,lab)=>`<div class="field"><label for="${id}">${lab}</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="${id}m" aria-label="${lab}: month" style="flex:1 1 130px"><option value="">Month, if known</option>${km.map((m,i)=>`<option value="${i+1}"${String(A[id+"m"])===String(i+1)?" selected":""}>${m}</option>`).join("")}</select><select id="${id}" aria-label="${lab}: year" style="flex:1 1 110px"><option value="">Year</option>${ky.map(y=>`<option${A[id]===y?" selected":""}>${y}</option>`).join("")}</select></div></div>`;
     const f=el("div",{class:"form-grid"},sel("kid1","Eldest child born")+sel("kid2","Youngest child born"));
     panel.append(f);
     const cbw=el("p",{class:"small",id:"cbYears","aria-live":"polite"});panel.append(cbw);
     const err=el("span",{class:"err"});panel.append(err);
-    const cbShow=()=>{const a=+f.querySelector("#kid1").value||+f.querySelector("#kid2").value,b=+f.querySelector("#kid2").value||a;
-      if(!a){cbw.textContent="";return;}const from=Math.max(1978,a),to=Math.min(2009,b+15);
-      cbw.innerHTML=from>to?"Those years fall outside 1978 to 2010, so Home Responsibilities Protection wouldn't apply.":`So you would have received Child Benefit in the tax years <b>${from}–${String(from+1).slice(2)}</b> to <b>${to}–${String(to+1).slice(2)}</b>, until your youngest turned 16. These are the only years we look at, and next we'll leave out any years you worked full time.`;};
+    const gv=id=>f.querySelector("#"+id).value;
+    /* HMRC only gives HRP for a full tax year (6 April to 5 April) with Child Benefit for a child under 16 */
+    const cbShow=()=>{const a=+gv("kid1")||+gv("kid2"),b=+gv("kid2")||a;
+      if(!a){cbw.textContent="";return;}
+      const am=+(gv("kid1")?gv("kid1m"):gv("kid2m")),bm=+(gv("kid2")?gv("kid2m"):gv("kid1m"));
+      const from=Math.max(1978,am?(am<=3?a:a+1):a),to=Math.min(2009,bm?(bm<=3?b+14:b+15):b+15),exact=am&&bm;
+      const ty=y=>`<b>${y}–${String(y+1).slice(2)}</b>`;
+      cbw.innerHTML=from>to?"Those years fall outside 1978 to 2010, so Home Responsibilities Protection wouldn't apply.":
+        exact?`So the full tax years with Child Benefit would be ${ty(from)} to ${ty(to)}. HMRC only counts a tax year (6 April to 5 April) if Child Benefit was paid for a child under 16 for the whole year, so the year a child was born and the year the youngest turned 16 usually don't count. These are the only years we look at, and next we'll leave out any years ${you("you","they")} worked full time.`
+        :`So Child Benefit would have covered roughly the tax years ${ty(from)} to ${ty(to)}. Add the months if ${you("you","they")} know them: HMRC only counts full tax years (6 April to 5 April), so the month can move the first or last year.`;};
     f.querySelectorAll("select").forEach(x=>x.addEventListener("change",()=>{err.textContent="";cbShow();}));cbShow();
     navRow(()=>{
-      const a=f.querySelector("#kid1").value,b=f.querySelector("#kid2").value;
+      const a=gv("kid1"),b=gv("kid2");
       if(!a&&!b){err.textContent="Choose at least one year, or skip this question";return;}
       if(a&&b&&+b<+a){err.textContent="The youngest child's year can't be before the eldest's";return;}
-      A.kid1=a||b;A.kid2=b||a;next();
+      A.kid1=a||b;A.kid2=b||a;A.kid1m=(a?gv("kid1m"):gv("kid2m"))||"";A.kid2m=(b?gv("kid2m"):gv("kid1m"))||"";next();
     });
     const skip=el("button",{type:"button",class:"linkbtn"},"I'm not sure, skip this question");
-    skip.onclick=()=>{delete A.kid1;delete A.kid2;next();};panel.append(skip);
+    skip.onclick=()=>{delete A.kid1;delete A.kid2;delete A.kid1m;delete A.kid2m;next();};panel.append(skip);
   }
   /* work history in life terms; the tax years are worked out and shown back */
   function renderWork(){
